@@ -5,7 +5,6 @@ build/
 !**/src/main/**/build/
 !**/src/test/**/build/
 
-### STS ###
 .apt_generated
 .classpath
 .factorypath
@@ -17,7 +16,6 @@ bin/
 !**/src/main/**/bin/
 !**/src/test/**/bin/
 
-### IntelliJ IDEA ###
 .idea
 *.iws
 *.iml
@@ -26,54 +24,41 @@ out/
 !**/src/main/**/out/
 !**/src/test/**/out/
 
-### NetBeans ###
 /nbproject/private/
 /nbbuild/
 /dist/
 /nbdist/
 /.nb-gradle/
 
-### VS Code ###
 .vscode/
 
-# =========================
-# OS / Misc
-# =========================
+
 .DS_Store
 Thumbs.db
 
-# =========================
-# IntelliJ IDEA
-# =========================
+
 .idea/
 
-# =========================
-# Gradle (Spring Boot)
-# =========================
+
 .gradle/
 
-# =========================
-# Logs
-# =========================
+
 *.log
 logs/
 
-# =========================
-# Spring Boot / Java
-# =========================
+
 target/
 *.class
 
-# application secrets (choose one strategy)
+# application secrets
 *.properties
 *.yml
+*.yaml
+
 .env
 .env.*
 !*.example
 
-# =========================
-# Node / React (Vite)
-# =========================
 node_modules/
 dist/
 .vite/
