@@ -1,5 +1,7 @@
 package com.evido.api.document.service.impl;
 
+import com.evido.api.document.dto.response.BulkUploadFailedItem;
+import com.evido.api.document.dto.response.BulkUploadResponse;
 import com.evido.api.document.dto.response.DocumentCreateResponse;
 import com.evido.api.document.entity.Document;
 import com.evido.api.document.entity.DocumentVersion;
@@ -11,6 +13,7 @@ import com.evido.api.document.service.DocumentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -18,8 +21,7 @@ import java.io.InputStream;
 import java.nio.file.*;
 import java.security.MessageDigest;
 import java.time.LocalDateTime;
-import java.util.HexFormat;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -28,21 +30,18 @@ public class DocumentServiceImpl implements DocumentService {
     private final FileObjectRepository fileObjectRepository;
     private final DocumentRepository documentRepository;
     private final DocumentVersionRepository documentVersionRepository;
+    private final TransactionTemplate txTemplate;
 
-    //todo : 추후 분기 예정스
     private static final String STORAGE_PROVIDER_LOCAL = "LOCAL";
 
-    //todo : 자리 잡으면 requestDTO 로 변경 예정
     @Override
     @Transactional
     public DocumentCreateResponse uploadNewDocument(Long orgId, Long userId, String title, MultipartFile file) {
         validateFile(file);
-
         String safeTitle = StringUtils.hasText(title) ? title : defaultTitle(file.getOriginalFilename());
-
         FileObject savedFile = saveFileObject(orgId, file);
-
         LocalDateTime now = LocalDateTime.now();
+
         Document doc = Document.builder()
                 .orgId(orgId)
                 .ownerUserId(userId)
@@ -114,6 +113,47 @@ public class DocumentServiceImpl implements DocumentService {
                 doc.getTitle(),
                 doc.getStatus()
         );
+    }
+
+    @Override
+    public BulkUploadResponse uploadNewDocuments(Long orgId, Long userId, String titlePrefix, List<MultipartFile> files) {
+        if (files == null || files.isEmpty()) {
+            return new BulkUploadResponse(
+                    List.of(),
+                    List.of(new BulkUploadFailedItem("-", "files is required"))
+            );
+        }
+
+        List<DocumentCreateResponse> success = new ArrayList<>();
+        List<BulkUploadFailedItem> failed = new ArrayList<>();
+
+        for (MultipartFile f : files) {
+            String filename = (f != null && f.getOriginalFilename() != null) ? f.getOriginalFilename() : "(unknown)";
+
+            try {
+                DocumentCreateResponse res = txTemplate.execute(status -> {
+                    String title = buildTitle(titlePrefix, filename);
+                    return uploadNewDocument(orgId, userId, title, f);
+                });
+                success.add(res);
+
+            } catch (Exception e) {
+                failed.add(new BulkUploadFailedItem(filename, toUserReason(e)));
+            }
+        }
+
+        return new BulkUploadResponse(success, failed);
+    }
+
+    private String buildTitle(String titlePrefix, String filename) {
+        String base = defaultTitle(filename);
+        if (!StringUtils.hasText(titlePrefix)) return base;
+        return titlePrefix + " - " + base;
+    }
+
+    private String toUserReason(Exception e) {
+        if (e instanceof IllegalArgumentException) return e.getMessage();
+        return "업로드 실패";
     }
 
     private void validateFile(MultipartFile file) {
