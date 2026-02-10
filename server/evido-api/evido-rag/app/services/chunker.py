@@ -1,9 +1,8 @@
 import re
 from typing import List
 
-# Token counter
 try:
-    import tiktoken  # type: ignore
+    import tiktoken
     _ENC = tiktoken.get_encoding("cl100k_base")
     def count_tokens(s: str) -> int:
         return len(_ENC.encode(s))
