@@ -1,4 +1,4 @@
-package com.evido.api.document.dto.response;
+package com.evido.api.document.api.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
