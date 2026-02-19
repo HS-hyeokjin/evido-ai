@@ -4,14 +4,25 @@ import Input from "../../components/common/Input";
 import Button from "../../components/common/Button";
 import { uploadDocumentsBulk, type BulkUploadResponse } from "../../api/documents";
 
-function isAllowedFile(file: File) {
-    const name = file.name.toLowerCase();
-    return (
-        name.endsWith(".pdf") ||
-        name.endsWith(".docx") ||
-        name.endsWith(".txt") ||
-        name.endsWith(".md")
-    );
+const ACCEPTED_EXTS = [".pdf", ".docx", ".txt", ".md"] as const;
+const MAX_BYTES = 20 * 1024 * 1024;
+const ALLOWED_MIMES = new Set<string>([
+    "application/pdf",
+    "text/plain",
+    "text/markdown",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+]);
+
+type RejectedItem = {
+    name: string;
+    reason: string;
+    size: number;
+};
+
+function getExt(name: string) {
+    const lower = name.toLowerCase();
+    const dot = lower.lastIndexOf(".");
+    return dot >= 0 ? lower.slice(dot) : "";
 }
 
 function prettySize(bytes: number) {
@@ -20,6 +31,24 @@ function prettySize(bytes: number) {
     if (kb < 1024) return `${Math.ceil(kb)} KB`;
     const mb = kb / 1024;
     return `${mb.toFixed(1)} MB`;
+}
+
+function validateFile(file: File): { ok: true } | { ok: false; reason: string } {
+    const ext = getExt(file.name);
+
+    if (!ACCEPTED_EXTS.includes(ext as any)) {
+        return { ok: false, reason: '허용되지 않은 확장자(${ext || "없음"})' };
+    }
+
+    if (file.size > MAX_BYTES) {
+        return { ok: false, reason: `용량 초과(${prettySize(file.size)} > ${prettySize(MAX_BYTES)})` };
+    }
+
+    if (file.type && !ALLOWED_MIMES.has(file.type)) {
+        return { ok: false, reason: `허용되지 않은 파일(${file.type})` };
+    }
+
+    return { ok: true };
 }
 
 async function getFilesFromDropEvent(e: React.DragEvent): Promise<File[]> {
@@ -74,6 +103,7 @@ async function traverseEntry(entry: any): Promise<File[]> {
 export default function DocumentsUploadPage() {
     const [title, setTitle] = useState("");
     const [files, setFiles] = useState<File[]>([]);
+    const [rejected, setRejected] = useState<RejectedItem[]>([]);
     const [result, setResult] = useState<BulkUploadResponse | null>(null);
     const [loading, setLoading] = useState(false);
 
@@ -83,9 +113,10 @@ export default function DocumentsUploadPage() {
     const fileInputRef = useRef<HTMLInputElement | null>(null);
 
     const acceptedHint = "PDF/DOCX/TXT/MD";
+    const maxHint = prettySize(MAX_BYTES);
 
     const summaryLabel = useMemo(() => {
-        if (files.length === 0) return `여기에 파일/폴더를 드래그해서 놓거나 클릭해서 선택 (${acceptedHint})`;
+        if (files.length === 0) return `파일/폴더를 드래그해서 놓거나 클릭해서 선택 (${acceptedHint})`;
         const totalBytes = files.reduce((acc, f) => acc + f.size, 0);
         return `${files.length}개 선택됨 · 총 ${prettySize(totalBytes)}`;
     }, [files]);
@@ -93,17 +124,25 @@ export default function DocumentsUploadPage() {
     const addFiles = (incoming: File[]) => {
         if (incoming.length === 0) return;
 
-        const allowed = incoming.filter(isAllowedFile);
-        const rejected = incoming.filter((f) => !isAllowedFile(f));
+        const next = [...files];
+        const rejectedItems: RejectedItem[] = [];
 
-        if (rejected.length > 0) {
-            console.warn("Rejected files:", rejected.map((r) => r.name));
+        for (const f of incoming) {
+            const v = validateFile(f);
+            if (!v.ok) {
+                rejectedItems.push({ name: f.name, reason: v.reason, size: f.size });
+                continue;
+            }
+
+            const dup = next.some(
+                (x) => x.name === f.name && x.size === f.size && x.lastModified === f.lastModified
+            );
+            if (!dup) next.push(f);
         }
 
-        const next = [...files];
-        for (const f of allowed) {
-            const dup = next.some((x) => x.name === f.name && x.size === f.size);
-            if (!dup) next.push(f);
+        if (rejectedItems.length > 0) {
+            setRejected((prev) => [...rejectedItems, ...prev].slice(0, 50)); // 너무 길어지지 않게 50개 제한
+            console.warn("Rejected files:", rejectedItems);
         }
 
         setFiles(next);
@@ -122,19 +161,20 @@ export default function DocumentsUploadPage() {
         if (loading) return;
 
         const dropped = await getFilesFromDropEvent(e);
+        if (dropped.length === 0) {
+            alert("드롭된 파일이 없습니다.");
+            return;
+        }
 
-        const allowed = dropped.filter(isAllowedFile);
-        const rejectedCount = dropped.length - allowed.length;
 
-        if (allowed.length === 0) {
+        addFiles(dropped);
+
+        const droppedExts = dropped.map((f) => getExt(f.name)).filter(Boolean);
+        const hasAnyAccepted = droppedExts.some((ext) => ACCEPTED_EXTS.includes(ext as any));
+        if (!hasAnyAccepted) {
             alert(`허용 파일(${acceptedHint})이 없음. 폴더를 드롭했으면 확장자를 확인.`);
             return;
         }
-        if (rejectedCount > 0) {
-            alert(`총 ${dropped.length}개 중 ${allowed.length}개만 추가됨 (허용: ${acceptedHint}, 제외 ${rejectedCount}개)`);
-        }
-
-        addFiles(allowed);
     };
 
     const onDragOver: React.DragEventHandler<HTMLDivElement> = (e) => {
@@ -159,6 +199,7 @@ export default function DocumentsUploadPage() {
 
     const clearAll = () => {
         setFiles([]);
+        setRejected([]);
         setResult(null);
         setProgress(0);
         if (fileInputRef.current) fileInputRef.current.value = "";
@@ -196,13 +237,9 @@ export default function DocumentsUploadPage() {
                 <div className="grid gap-4">
                     <div>
                         <div className="mb-2 text-sm font-extrabold">문서 제목 Prefix(옵션)</div>
-                        <Input
-                            value={title}
-                            onChange={(e) => setTitle(e.target.value)}
-                            placeholder="예) 점검 매뉴얼"
-                        />
+                        <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="예) 점검 매뉴얼" />
                         <div className="mt-2 text-xs text-slate-500">
-                            * 폴더 드롭 시 파일이 많을 수 있어. 허용 확장자만 추려서 추가됨.
+                            * 폴더 드롭 시 파일이 많을 수 있어. 허용 확장자만 추려서 추가됨. (최대 {maxHint})
                         </div>
                     </div>
 
@@ -239,7 +276,7 @@ export default function DocumentsUploadPage() {
                                 <div className="min-w-0">
                                     <div className="truncate text-sm font-bold">{summaryLabel}</div>
                                     <div className="mt-1 text-xs text-slate-500">
-                                        클릭 또는 드래그&드롭 · 허용: {acceptedHint}
+                                        클릭 또는 드래그&드롭 · 허용: {acceptedHint} · 최대 {maxHint}
                                     </div>
                                 </div>
 
@@ -256,12 +293,7 @@ export default function DocumentsUploadPage() {
                                     <div className="font-black text-primary-700">{progress}%</div>
                                 </div>
                                 <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-100">
-                                    <div
-                                        className="h-full rounded-full bg-primary-500 transition-all"
-                                        style={{ width: `${progress}%` }}
-                                    />
-                                </div>
-                                <div className="mt-2 text-xs text-slate-500">
+                                    <div className="h-full rounded-full bg-primary-500 transition-all" style={{ width: `${progress}%` }} />
                                 </div>
                             </div>
                         )}
@@ -282,13 +314,12 @@ export default function DocumentsUploadPage() {
 
                                 <ul className="divide-y divide-slate-200">
                                     {files.map((f, idx) => (
-                                        <li
-                                            key={`${f.name}-${f.size}-${idx}`}
-                                            className="flex items-center justify-between gap-3 px-4 py-3"
-                                        >
+                                        <li key={`${f.name}-${f.size}-${f.lastModified}-${idx}`} className="flex items-center justify-between gap-3 px-4 py-3">
                                             <div className="min-w-0">
                                                 <div className="truncate text-sm font-bold">{f.name}</div>
-                                                <div className="mt-1 text-xs text-slate-500">{prettySize(f.size)}</div>
+                                                <div className="mt-1 text-xs text-slate-500">
+                                                    {prettySize(f.size)} · {f.type || "mime:unknown"}
+                                                </div>
                                             </div>
                                             <button
                                                 type="button"
@@ -301,6 +332,41 @@ export default function DocumentsUploadPage() {
                                         </li>
                                     ))}
                                 </ul>
+                            </div>
+                        )}
+
+                        {rejected.length > 0 && (
+                            <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-3">
+                                <div className="flex items-center justify-between">
+                                    <div className="text-sm font-black text-amber-900">제외된 파일</div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setRejected([])}
+                                        disabled={loading}
+                                        className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-xs font-bold hover:bg-amber-100 disabled:opacity-60"
+                                    >
+                                        목록 비우기
+                                    </button>
+                                </div>
+                                <div className="mt-1 text-xs text-amber-800">
+                                    허용: {acceptedHint} · 최대 {maxHint} · (MIME은 보조 체크)
+                                </div>
+
+                                <ul className="mt-2 space-y-2">
+                                    {rejected.slice(0, 10).map((r, idx) => (
+                                        <li key={`${r.name}-${idx}`} className="rounded-xl border border-amber-200 bg-white p-3">
+                                            <div className="truncate text-sm font-bold">{r.name}</div>
+                                            <div className="mt-1 text-xs text-slate-600">{prettySize(r.size)}</div>
+                                            <div className="mt-1 text-xs font-bold text-amber-700">{r.reason}</div>
+                                        </li>
+                                    ))}
+                                </ul>
+
+                                {rejected.length > 10 && (
+                                    <div className="mt-2 text-xs text-amber-800">
+                                        * {rejected.length}개 중 10개만 표시 중 (너무 길어지는 것 방지)
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
@@ -320,7 +386,10 @@ export default function DocumentsUploadPage() {
                         ) : (
                             <ul className="space-y-2">
                                 {result.success.map((r) => (
-                                    <li key={`${r.documentId}-${r.versionId}-${r.fileId}`} className="rounded-xl border border-slate-200 p-3">
+                                    <li
+                                        key={`${r.documentId}-${r.versionId}-${r.fileId}`}
+                                        className="rounded-xl border border-slate-200 p-3"
+                                    >
                                         <div className="font-extrabold">{r.title}</div>
                                         <div className="mt-1 text-xs text-slate-600">
                                             doc #{r.documentId} · ver #{r.versionId} · file #{r.fileId} · {r.status}
