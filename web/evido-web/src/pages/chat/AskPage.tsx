@@ -37,8 +37,8 @@ type ChatMessage =
 
 export default function AskPage() {
     const [q, setQ] = useState("");
-    const [documentId, setDocumentId] = useState<number | "">("");
-    const [versionId, setVersionId] = useState<number | "">("");
+    // 임시 workspaceId
+    const [workspaceId, setWorkspaceId] = useState<number>(1);
     const [topK, setTopK] = useState<number>(5);
 
     const [loading, setLoading] = useState(false);
@@ -47,8 +47,8 @@ export default function AskPage() {
     const listRef = useRef<HTMLDivElement | null>(null);
 
     const canAsk = useMemo(() => {
-        return !!q.trim() && documentId !== "" && versionId !== "" && !loading;
-    }, [q, documentId, versionId, loading]);
+        return !!q.trim() && !loading;
+    }, [q, loading]);
 
     const scrollToBottom = () => {
         setTimeout(() => {
@@ -72,11 +72,6 @@ export default function AskPage() {
     const ask = async () => {
         const text = q.trim();
         if (!text) return;
-
-        if (documentId === "" || versionId === "") {
-            alert("documentId / versionId 값이 없습니다.");
-            return;
-        }
 
         const userMsg: ChatMessage = {
             id: crypto.randomUUID(),
@@ -105,8 +100,7 @@ export default function AskPage() {
 
             const payload = {
                 queryText: text,
-                documentId: Number(documentId),
-                versionId: Number(versionId),
+                workspaceId: Number(workspaceId),
                 topK: Number(topK),
             };
 
@@ -131,7 +125,7 @@ export default function AskPage() {
             scrollToBottom();
         } catch (e: any) {
             console.error(e);
-            const msg = e?.response?.data?.message ?? "질문 실패(/api/qa/answer 백엔드 확인)";
+            const msg = e?.response?.data?.message ?? "질문 실패";
 
             setMessages((prev) =>
                 prev.map((m) => {
@@ -157,16 +151,11 @@ export default function AskPage() {
 
             <Card>
                 <div className="grid gap-3">
-                    <div className="grid gap-2 sm:grid-cols-3">
+                    <div className="grid gap-2 sm:grid-cols-2">
                         <Input
-                            value={documentId}
-                            onChange={(e) => setDocumentId(e.target.value === "" ? "" : Number(e.target.value))}
-                            placeholder="documentId (예: 1)"
-                        />
-                        <Input
-                            value={versionId}
-                            onChange={(e) => setVersionId(e.target.value === "" ? "" : Number(e.target.value))}
-                            placeholder="versionId (예: 1)"
+                            value={workspaceId}
+                            onChange={(e) => setWorkspaceId(Number(e.target.value))}
+                            placeholder="workspaceId"
                         />
                         <Input
                             value={topK}
@@ -174,22 +163,13 @@ export default function AskPage() {
                             placeholder="topK (기본 5)"
                         />
                     </div>
-
-                    <div className="text-xs text-slate-500">
-                        * 호출: POST /api/qa/answer (queryText, documentId, versionId, topK)
-                    </div>
                 </div>
             </Card>
 
             <Card>
-                <div
-                    ref={listRef}
-                    className="h-[480px] overflow-auto rounded-xl bg-slate-50 p-3 space-y-3"
-                >
+                <div ref={listRef} className="h-[480px] overflow-auto rounded-xl bg-slate-50 p-3 space-y-3">
                     {messages.length === 0 ? (
-                        <div className="text-sm text-slate-500">
-                            문서(documentId/versionId)를 지정하고 질문해주세요.
-                        </div>
+                        <div className="text-sm text-slate-500">문서 기준으로 질문</div>
                     ) : (
                         messages.map((m) => {
                             const isUser = m.role === "user";
@@ -254,7 +234,7 @@ export default function AskPage() {
                             value={q}
                             onChange={(e) => setQ(e.target.value)}
                             onKeyDown={onEnterAsk}
-                            placeholder="문서 기반으로 질문 (예: 점검 주기는?)"
+                            placeholder="질문"
                         />
                     </div>
                     <Button onClick={ask} disabled={!canAsk}>
@@ -262,9 +242,9 @@ export default function AskPage() {
                     </Button>
                 </div>
 
-                {(documentId === "" || versionId === "") && (
-                    <div className="mt-2 text-xs text-amber-600">
-                        documentId / versionId 를 입력해야 합니다.
+                {!q.trim() && (
+                    <div className="mt-2 text-xs text-slate-400">
+                        질문을 입력해야 전송 가능합니다.
                     </div>
                 )}
             </Card>
