@@ -1,13 +1,9 @@
 package com.evido.api.document.api.dto.response;
 
-import lombok.*;
-
-@Getter
-@AllArgsConstructor
-public class DocumentCreateResponse {
-    private Long documentId;
-    private Long versionId;
-    private Long fileId;
-    private String title;
-    private String status;
-}
+public record DocumentCreateResponse(
+        Long documentId,
+        Long versionId,
+        Long fileId,
+        String title,
+        String status
+) {}

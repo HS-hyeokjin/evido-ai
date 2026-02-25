@@ -1,17 +1,19 @@
 package com.evido.api.document.api;
 
-import com.evido.api.document.api.dto.response.BulkUploadResponse;
-import com.evido.api.document.api.dto.response.DocumentCreateResponse;
+import com.evido.api.document.api.dto.request.*;
+import com.evido.api.document.api.dto.response.*;
 import com.evido.api.document.api.mapper.DocumentResponseMapper;
 import com.evido.api.document.application.dto.*;
 import com.evido.api.document.application.port.in.DocumentUseCase;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 import reactor.core.publisher.Mono;
-
-import java.util.List;
+import org.springframework.core.io.Resource;
+import java.nio.charset.StandardCharsets;
 
 @RestController
 @RequiredArgsConstructor
@@ -20,37 +22,155 @@ public class DocumentController {
 
     private final DocumentUseCase documentUseCase;
 
-    // TODO: 임시 id (나중에 인증 붙이면 교체)
-    private Long orgId() { return 1L; }
-    private Long userId() { return 1L; }
+    // TODO
+    private Long workspaceId() {
+        return 1L;
+    }
+
+    private Long userId() {
+        return 1L;
+    }
+
+    @GetMapping(value = "/{documentId}/content", produces = MediaType.TEXT_PLAIN_VALUE)
+    public Mono<ResponseEntity<String>> getTextContent(@PathVariable Long documentId, @ModelAttribute DocumentContentRequest req) {
+
+        var cmd = new GetDocumentTextContentQuery(
+                workspaceId(),
+                userId(),
+                documentId,
+                req.versionId()
+        );
+
+        return documentUseCase.getDocumentTextContent(cmd).map(this::textResponse);
+    }
+
+    @GetMapping("/{documentId}/download")
+    public Mono<ResponseEntity<Resource>> download(@PathVariable Long documentId, @ModelAttribute DownloadDocumentRequest req) {
+
+        var query = new GetDocumentFileQuery(
+                workspaceId(),
+                userId(),
+                documentId,
+                req.versionId()
+        );
+
+        Mono<Resource> resourceMono =
+                documentUseCase.getDocumentFileResource(query);
+
+        Mono<DocumentFileMetaResult> metaMono =
+                documentUseCase.getDocumentFileMeta(query);
+
+        return Mono.zip(resourceMono, metaMono)
+                .map(tuple -> {
+
+                    Resource resource = tuple.getT1();
+                    DocumentFileMetaResult meta = tuple.getT2();
+
+                    String dispositionType =
+                            meta.inline() ? "inline" : "attachment";
+
+                    String encodedFilename =
+                            java.net.URLEncoder.encode(
+                                    meta.filename(),
+                                    StandardCharsets.UTF_8
+                            ).replaceAll("\\+", "%20");
+
+                    return ResponseEntity.ok()
+                            .header(HttpHeaders.CONTENT_TYPE, meta.contentType())
+                            .header(HttpHeaders.CONTENT_DISPOSITION,
+                                    dispositionType +
+                                            "; filename*=UTF-8''" +
+                                            encodedFilename)
+                            .body(resource);
+                });
+    }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public Mono<DocumentCreateResponse> upload(
-            @RequestPart("file") MultipartFile file,
-            @RequestPart(value = "title", required = false) String title
-    ) {
-        var cmd = new UploadNewDocumentCommand(orgId(), userId(), title, file);
-        return documentUseCase.uploadNewDocument(cmd)
-                .map(DocumentResponseMapper::from);
+    public Mono<DocumentCreateResponse> upload(@ModelAttribute UploadDocumentRequest req) {
+
+        var cmd = new UploadNewDocumentCommand(
+                workspaceId(),
+                userId(),
+                req.title(),
+                req.file()
+        );
+
+        return documentUseCase.uploadNewDocument(cmd).map(DocumentResponseMapper::from);
     }
 
     @PostMapping(value = "/{documentId}/versions", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public Mono<DocumentCreateResponse> uploadVersion(
-            @PathVariable Long documentId,
-            @RequestPart("file") MultipartFile file
-    ) {
-        var cmd = new UploadNewVersionCommand(orgId(), userId(), documentId, file);
-        return documentUseCase.uploadNewVersion(cmd)
-                .map(DocumentResponseMapper::from);
+    public Mono<DocumentCreateResponse> uploadVersion(@PathVariable Long documentId, @ModelAttribute UploadDocumentVersionRequest req) {
+
+        var cmd = new UploadNewVersionCommand(
+                workspaceId(),
+                userId(),
+                documentId,
+                req.file()
+        );
+
+        return documentUseCase.uploadNewVersion(cmd).map(DocumentResponseMapper::from);
     }
 
     @PostMapping(value = "/bulk", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public Mono<BulkUploadResponse> uploadBulk(
-            @RequestPart("files") List<MultipartFile> files,
-            @RequestPart(value = "title", required = false) String titlePrefix
-    ) {
-        var cmd = new BulkUploadCommand(orgId(), userId(), titlePrefix, files);
-        return documentUseCase.uploadBulk(cmd)
-                .map(DocumentResponseMapper::from);
+    public Mono<BulkUploadResponse> uploadBulk(@ModelAttribute BulkUploadRequest req) {
+
+        var cmd = new BulkUploadCommand(
+                workspaceId(),
+                userId(),
+                req.titlePrefix(),
+                req.files()
+        );
+
+        return documentUseCase.uploadBulk(cmd).map(DocumentResponseMapper::from);
+    }
+
+    @GetMapping
+    public Mono<PageResponse<DocumentListItemResponse>> list(@ModelAttribute ListDocumentsRequest req) {
+
+        Sort sort = parseSort(req.sortOrDefault());
+
+        var cmd = new ListDocumentsQuery(
+                workspaceId(),
+                userId(),
+                req.q(),
+                req.pageOrDefault(),
+                req.sizeOrDefault(),
+                sort
+        );
+
+        return documentUseCase.listDocuments(cmd).map(DocumentResponseMapper::from);
+    }
+
+    @DeleteMapping("/{documentId}")
+    public Mono<Void> delete(@PathVariable Long documentId) {
+
+        var cmd = new DeleteDocumentCommand(
+                workspaceId(),
+                userId(),
+                documentId
+        );
+
+        return documentUseCase.deleteDocument(cmd);
+    }
+
+    private ResponseEntity<String> textResponse(String body) {
+        return ResponseEntity.ok()
+                .contentType(new MediaType("text", "plain", StandardCharsets.UTF_8))
+                .body(body);
+    }
+
+    private Sort parseSort(String sort) {
+
+        if (sort == null || sort.isBlank()) {
+            return Sort.by(Sort.Direction.DESC, "createdAt");
+        }
+
+        String[] parts = sort.split(",");
+        String property = parts[0].trim();
+
+        Sort.Direction direction =
+                (parts.length >= 2 && "asc".equalsIgnoreCase(parts[1].trim())) ? Sort.Direction.ASC : Sort.Direction.DESC;
+
+        return Sort.by(direction, property);
     }
 }

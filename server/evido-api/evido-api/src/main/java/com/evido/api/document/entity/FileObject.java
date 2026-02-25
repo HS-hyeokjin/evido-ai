@@ -18,8 +18,8 @@ public class FileObject {
     @Column(name = "file_id")
     private Long fileId;
 
-    @Column(name = "org_id", nullable = false)
-    private Long orgId;
+    @Column(name = "workspace_id", nullable = false)
+    private Long workspaceId;
 
     @Column(name = "storage_provider", nullable = false, length = 20)
     private String storageProvider;

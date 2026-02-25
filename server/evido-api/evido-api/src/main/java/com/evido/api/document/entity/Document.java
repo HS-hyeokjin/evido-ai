@@ -18,8 +18,8 @@ public class Document {
     @Column(name = "document_id")
     private Long documentId;
 
-    @Column(name = "org_id", nullable = false)
-    private Long orgId;
+    @Column(name = "workspace_id", nullable = false)
+    private Long workspaceId;
 
     @Column(name = "owner_user_id", nullable = false)
     private Long ownerUserId;
