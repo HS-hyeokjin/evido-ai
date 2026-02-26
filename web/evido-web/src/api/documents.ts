@@ -42,3 +42,46 @@ export async function uploadDocumentsBulk(params: {
 
     return res.data;
 }
+
+export type DocumentListItem = {
+    documentId: number;
+    title: string;
+    latestVersionId?: number | null;
+    fileId?: number | null;
+    filename?: string | null;
+    createdAt?: string | null;
+    status?: string | null;
+};
+
+export type PageResponse<T> = {
+    content: T[];
+    number: number;
+    size: number;
+    totalElements: number;
+    totalPages: number;
+};
+
+export async function listDocuments(params: {
+    query?: string;
+    page?: number;
+    size?: number;
+    sort?: string;
+}) {
+    const { query, page = 0, size = 10, sort = "createdAt,desc" } = params;
+
+    const res = await api.get<PageResponse<DocumentListItem>>("/api/documents", {
+        params: {
+            q: query || undefined,
+            page,
+            size,
+            sort,
+        },
+    });
+
+    return res.data;
+}
+
+export async function deleteDocument(documentId: number) {
+    const res = await api.delete(`/api/documents/${documentId}`);
+    return res.data;
+}
