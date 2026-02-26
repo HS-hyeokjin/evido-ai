@@ -1,8 +1,8 @@
-package com.evido.api.qa.api.dto;
+package com.evido.api.qa.infrastructure.rag.dto;
 
 import java.util.List;
 
-public record AskResponse(
+public record RagAnswerResponse(
         String queryText,
         String answer,
         List<Evidence> evidences

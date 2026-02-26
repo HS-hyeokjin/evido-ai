@@ -1,6 +1,6 @@
 package com.evido.api.qa.api;
 
-import com.evido.api.qa.api.dto.AskResponse;
+import com.evido.api.qa.api.dto.response.AskResponse;
 import com.evido.api.qa.application.dto.AskResult;
 
 import java.util.List;
