@@ -9,7 +9,7 @@ router = APIRouter()
 @router.post("", response_model=IngestResponse)
 def ingest(req: IngestRequest):
     if not req.rawText.strip():
-        raise HTTPException(400, "rawText is empty")
+        raise HTTPException(404, "No chunks found")
 
     chunks = chunk_text_token_based(
         req.rawText,
