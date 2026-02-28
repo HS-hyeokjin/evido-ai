@@ -1,0 +1,56 @@
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: false
+        show_sql: false
+    open-in-view: false
+
+  data:
+    redis:
+      host: ${SPRING_REDIS_HOST}
+      port: ${SPRING_REDIS_PORT}
+      connect-timeout: 3000
+
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
+            scope:
+              - profile
+              - email
+
+  mvc:
+    pathmatch:
+      matching-strategy: ant_path_matcher
+
+logging:
+  level:
+    org.hibernate.SQL: warn
+    org.hibernate.orm.jdbc.bind: warn
+
+rag:
+  base-url: ${RAG_BASE_URL}
+  timeout-seconds: 10
+
+jwt:
+  secret: ${JWT_SECRET}
+
+#aws:
+#  s3:
+#    bucket: ${AWS_S3_BUCKET}
+#  credentials:
+#    access-key: ${AWS_ACCESS_KEY}
+#    secret-key: ${AWS_SECRET_KEY}
+#  region: ${AWS_REGION}

@@ -1,0 +1,18 @@
+spring:
+  application:
+    name: evido-api
+
+server:
+  port: 8080
+
+springdoc:
+  group-configs:
+    - group: documents
+      paths-to-match: /api/documents/**
+    - group: qa
+      paths-to-match: /api/qa/**
+
+  swagger-ui:
+    enabled: false
+  api-docs:
+    enabled: false
