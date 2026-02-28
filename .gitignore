@@ -52,8 +52,6 @@ target/
 
 # application secrets
 *.properties
-*.yml
-*.yaml
 
 .env
 .env.*
