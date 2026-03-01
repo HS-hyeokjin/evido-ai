@@ -45,7 +45,9 @@ public class DocumentController {
     }
 
     @GetMapping("/{documentId}/download")
-    public Mono<ResponseEntity<Resource>> download(@PathVariable Long documentId, @ModelAttribute DownloadDocumentRequest req) {
+    public Mono<ResponseEntity<String>> getDownloadUrl(
+            @PathVariable Long documentId,
+            @ModelAttribute DownloadDocumentRequest req) {
 
         var query = new GetDocumentFileQuery(
                 workspaceId(),
@@ -54,35 +56,8 @@ public class DocumentController {
                 req.versionId()
         );
 
-        Mono<Resource> resourceMono =
-                documentUseCase.getDocumentFileResource(query);
-
-        Mono<DocumentFileMetaResult> metaMono =
-                documentUseCase.getDocumentFileMeta(query);
-
-        return Mono.zip(resourceMono, metaMono)
-                .map(tuple -> {
-
-                    Resource resource = tuple.getT1();
-                    DocumentFileMetaResult meta = tuple.getT2();
-
-                    String dispositionType =
-                            meta.inline() ? "inline" : "attachment";
-
-                    String encodedFilename =
-                            java.net.URLEncoder.encode(
-                                    meta.filename(),
-                                    StandardCharsets.UTF_8
-                            ).replaceAll("\\+", "%20");
-
-                    return ResponseEntity.ok()
-                            .header(HttpHeaders.CONTENT_TYPE, meta.contentType())
-                            .header(HttpHeaders.CONTENT_DISPOSITION,
-                                    dispositionType +
-                                            "; filename*=UTF-8''" +
-                                            encodedFilename)
-                            .body(resource);
-                });
+        return documentUseCase.getDocumentDownloadUrl(query)
+                .map(ResponseEntity::ok);
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

@@ -3,6 +3,7 @@ package com.evido.api.document.application.service;
 import com.evido.api.document.application.dto.*;
 import com.evido.api.document.application.port.in.DocumentUseCase;
 import com.evido.api.document.application.port.out.DocumentProcessPort;
+import com.evido.api.document.application.port.out.FileStoragePort;
 import com.evido.api.document.application.port.out.VectorIndexPort;
 import com.evido.api.document.entity.*;
 import com.evido.api.document.repository.*;
@@ -42,6 +43,7 @@ public class DocumentService implements DocumentUseCase {
     private final DocumentProcessPort documentProcessPort;
     private final DocumentChunkRepository documentChunkRepository;
     private final VectorIndexPort vectorIndexPort;
+    private final FileStoragePort fileStoragePort;
 
     private static final String STORAGE_PROVIDER_LOCAL = "LOCAL";
 
@@ -328,25 +330,20 @@ public class DocumentService implements DocumentUseCase {
 
     @Override
     @Transactional(readOnly = true)
-    public Mono<Resource> getDocumentFileResource(GetDocumentFileQuery q) {
+    public Mono<String> getDocumentDownloadUrl(GetDocumentFileQuery q) {
+
         FileObject fo = resolveFileObject(q);
-        if (!STORAGE_PROVIDER_LOCAL.equalsIgnoreCase(fo.getStorageProvider())) {
-            throw new IllegalArgumentException("현재 LOCAL 저장소만 지원합니다.");
-        }
-        if (!StringUtils.hasText(fo.getStorageKey())) {
-            throw new IllegalArgumentException("storageKey가 비어있습니다.");
+
+        if (!"S3".equalsIgnoreCase(fo.getStorageProvider())) {
+            throw new IllegalStateException("지원하지 않는 저장소");
         }
 
-        Path path = Paths.get(fo.getStorageKey());
-        if (!Files.exists(path)) {
-            throw new IllegalArgumentException("파일이 존재하지 않습니다.");
-        }
+        String url = fileStoragePort.generatePresignedUrl(
+                fo.getStorageKey(),
+                300
+        );
 
-        try {
-            return Mono.just(new UrlResource(path.toUri()));
-        } catch (MalformedURLException e) {
-            throw new IllegalStateException("파일 리소스 생성 실패", e);
-        }
+        return Mono.just(url);
     }
 
     @Override
@@ -475,36 +472,20 @@ public class DocumentService implements DocumentUseCase {
     }
 
     private FileObject saveFileObject(Long workspaceId, MultipartFile file) {
-        try {
-            // ✅ org 폴더 -> ws 폴더
-            Path baseDir = Paths.get("uploads", "ws-" + workspaceId);
-            Files.createDirectories(baseDir);
 
-            String storedName = UUID.randomUUID() + "_" + sanitize(file.getOriginalFilename());
-            Path storedPath = baseDir.resolve(storedName);
+        StoredFile stored = fileStoragePort.store(workspaceId, file);
 
-            try (InputStream in = file.getInputStream()) {
-                Files.copy(in, storedPath, StandardCopyOption.REPLACE_EXISTING);
-            }
-
-            String sha256 = sha256Hex(storedPath);
-            LocalDateTime now = LocalDateTime.now();
-
-            FileObject fo = FileObject.builder()
-                    .workspaceId(workspaceId)
-                    .storageProvider(STORAGE_PROVIDER_LOCAL)
-                    .storageKey(storedPath.toString().replace("\\", "/"))
-                    .originalName(file.getOriginalFilename())
-                    .contentType(file.getContentType() != null ? file.getContentType() : "application/octet-stream")
-                    .sizeBytes(file.getSize())
-                    .checksumSha256(sha256)
-                    .createdAt(now)
-                    .build();
-
-            return fileObjectRepository.save(fo);
-        } catch (Exception e) {
-            throw new IllegalStateException("failed to store file", e);
-        }
+        return fileObjectRepository.save(
+                FileObject.builder()
+                        .workspaceId(workspaceId)
+                        .storageProvider(stored.storageProvider())
+                        .storageKey(stored.storageKey())
+                        .originalName(stored.originalName())
+                        .contentType(stored.contentType())
+                        .sizeBytes(stored.sizeBytes())
+                        .createdAt(LocalDateTime.now())
+                        .build()
+        );
     }
 
     private String sanitize(String name) {

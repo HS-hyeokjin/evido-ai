@@ -18,6 +18,8 @@ public interface DocumentUseCase {
 
     Mono<String> getDocumentTextContent(GetDocumentTextContentQuery q);
 
+    Mono<String> getDocumentDownloadUrl(GetDocumentFileQuery q);
+
     Mono<Resource> getDocumentFileResource(GetDocumentFileQuery query);
 
     Mono<DocumentFileMetaResult> getDocumentFileMeta(GetDocumentFileQuery query);
