@@ -8,6 +8,8 @@ import {useEffect} from "react";
 const linkBase = "group relative flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-bold transition";
 const linkInactive = "text-slate-600 hover:bg-slate-50 hover:text-slate-900";
 const linkActive = "bg-primary-50 text-primary-700 before:absolute before:left-0 before:top-2 before:h-6 before:w-1 before:rounded-r-md before:bg-primary-600";
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
+
 
 export default function Sidebar() {
 
@@ -160,7 +162,7 @@ export default function Sidebar() {
                             </div>
 
                             <a
-                                href="http://localhost:8080/oauth2/authorization/google"
+                                href={`${API_BASE}/oauth2/authorization/google`}
                                 className="mt-3 inline-block w-full rounded-xl bg-primary-500 px-3 py-2 text-center text-xs font-bold text-white transition hover:bg-primary-600 active:scale-[0.98]"
                             >
                                 Google 로그인

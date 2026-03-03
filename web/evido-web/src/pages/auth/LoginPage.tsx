@@ -3,9 +3,11 @@ import Button from "../../components/common/Button";
 
 export default function LoginPage() {
 
+    const API_BASE = import.meta.env.VITE_API_BASE_URL;
+
     const handleGoogleLogin = () => {
         window.location.href =
-            "http://localhost:8080/oauth2/authorization/google";
+            `${API_BASE}/oauth2/authorization/google`;
     };
 
     return (
