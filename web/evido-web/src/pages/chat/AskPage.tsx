@@ -197,13 +197,46 @@ export default function AskPage() {
     const docs = docPage?.content ?? [];
 
     const selectedExt = getExt(selectedDoc?.filename);
+
+    useEffect(() => {
+        const fetchPreview = async () => {
+            if (!selectedDoc) {
+                setPreviewUrl("");
+                return;
+            }
+
+            const ext = getExt(selectedDoc.filename);
+
+            if (ext === "pdf") {
+                try {
+                    const url = await getDownloadUrl(selectedDoc.documentId);
+                    setPreviewUrl(url);
+                } catch (e) {
+                    console.error(e);
+                    setPreviewUrl("");
+                }
+            } else {
+                setPreviewUrl("");
+            }
+        };
+
+        fetchPreview();
+    }, [selectedDoc]);
+
     const isTextFile = selectedExt === "txt" || selectedExt === "md" || selectedExt === "markdown";
     const isPdf = selectedExt === "pdf";
 
     const textUrl = selectedDoc ? `/api/documents/${selectedDoc.documentId}/content` : "";
-    const downloadUrl = selectedDoc
-        ? `${window.location.origin}/api/documents/${selectedDoc.documentId}/download`
-        : "";
+
+    const [previewUrl, setPreviewUrl] = useState<string>("");
+
+    const getDownloadUrl = async (documentId: number) => {
+        const { data } = await api.get<string>(
+            `/api/documents/${documentId}/download`
+        );
+        return data;
+    };
+
     const onDeleteDoc = async (documentId: number) => {
         if (!confirm("문서를 삭제하시겠습니까?")) return;
         try {
@@ -483,15 +516,21 @@ export default function AskPage() {
 
                                                         <div
                                                             className="mt-3 flex items-center justify-between opacity-0 group-hover:opacity-100 transition">
-                                                            <a
-                                                                href={`/api/documents/${d.documentId}/download`}
-                                                                target="_blank"
-                                                                rel="noreferrer"
+                                                            <button
+                                                                type="button"
+                                                                onClick={async (e) => {
+                                                                    e.stopPropagation();
+                                                                    try {
+                                                                        const url = await getDownloadUrl(d.documentId);
+                                                                        window.open(url, "_blank");
+                                                                    } catch (err) {
+                                                                        alert("다운로드 실패");
+                                                                    }
+                                                                }}
                                                                 className="text-xs font-semibold text-slate-500 hover:text-slate-900"
-                                                                onClick={(e) => e.stopPropagation()}
                                                             >
                                                                 다운로드
-                                                            </a>
+                                                            </button>
 
                                                             <button
                                                                 type="button"
@@ -564,7 +603,7 @@ export default function AskPage() {
                             </div>
                         ) : isPdf ? (
                             <PdfViewer
-                                url={downloadUrl}
+                                url={previewUrl}
                                 filename={selectedDoc.filename ?? undefined}
                                 title={selectedDoc.title ?? "PDF 미리보기"}
                                 height={680}
@@ -582,15 +621,18 @@ export default function AskPage() {
                                     선택된 파일: {selectedDoc.filename ?? `doc #${selectedDoc.documentId}`}
                                 </div>
 
-                                <a
-                                    href={downloadUrl}
-                                    target="_blank"
-                                    rel="noreferrer"
+                                <button
+                                    type="button"
+                                    onClick={async () => {
+                                        if (!selectedDoc) return;
+                                        const url = await getDownloadUrl(selectedDoc.documentId);
+                                        window.open(url, "_blank");
+                                    }}
                                     className="mt-3 inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100"
                                 >
                                     <Download className="h-4 w-4"/>
                                     다운로드로 열기
-                                </a>
+                                </button>
                             </div>
                         )}
                     </div>
