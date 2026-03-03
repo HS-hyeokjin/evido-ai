@@ -5,3 +5,4 @@ qdrant-client
 fastembed
 sqlalchemy
 pymysql
+google-genai
