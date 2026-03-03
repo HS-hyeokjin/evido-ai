@@ -11,6 +11,8 @@ public interface FileStoragePort {
 
     InputStream load(String storageKey);
 
+    String loadAsString(String storageKey);
+
     void delete(String storageKey);
 
     String generatePresignedUrl(String storageKey, int expireSeconds);

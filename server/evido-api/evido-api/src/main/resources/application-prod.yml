@@ -47,10 +47,12 @@ rag:
 jwt:
   secret: ${JWT_SECRET}
 
-#aws:
-#  s3:
-#    bucket: ${AWS_S3_BUCKET}
-#  credentials:
-#    access-key: ${AWS_ACCESS_KEY}
-#    secret-key: ${AWS_SECRET_KEY}
-#  region: ${AWS_REGION}
+app:
+  storage:
+    type: s3
+    s3:
+      bucket: ${AWS_BUCKET}
+      region: ${AWS_REGION}
+      presign-expire-seconds: 300
+      access-key: ${AWS_ACCESS_KEY}
+      secret-key: ${AWS_SECRET_KEY}

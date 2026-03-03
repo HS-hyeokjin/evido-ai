@@ -48,6 +48,37 @@ public class DocumentService implements DocumentUseCase {
     private static final String STORAGE_PROVIDER_LOCAL = "LOCAL";
 
     @Override
+    public Mono<BulkUploadResult> uploadBulk(BulkUploadCommand cmd) {
+        List<MultipartFile> files = cmd.files();
+        if (files == null || files.isEmpty()) {
+            return Mono.just(new BulkUploadResult(
+                    List.of(),
+                    List.of(new BulkUploadResult.BulkUploadFailedItemResult("-", "files is required"))
+            ));
+        }
+
+        List<DocumentCreateResult> success = new ArrayList<>();
+        List<BulkUploadResult.BulkUploadFailedItemResult> failed = new ArrayList<>();
+        for (MultipartFile f : files) {
+            String filename = (f != null && f.getOriginalFilename() != null) ? f.getOriginalFilename() : "(unknown)";
+            try {
+                DocumentCreateResult res = txTemplate.execute(status -> {
+                    String title = buildTitle(cmd.titlePrefix(), filename);
+                    return uploadNewDocument(new UploadNewDocumentCommand(
+                            cmd.workspaceId(), cmd.userId(), title, f
+                    )).block();
+                });
+                success.add(res);
+            } catch (Exception e) {
+                failed.add(new BulkUploadResult.BulkUploadFailedItemResult(filename, toUserReason(e)));
+            }
+        }
+
+        return Mono.just(new BulkUploadResult(success, failed));
+    }
+
+
+    @Override
     @Transactional
     public Mono<DocumentCreateResult> uploadNewDocument(UploadNewDocumentCommand cmd) {
         MultipartFile file = cmd.file();
@@ -143,37 +174,6 @@ public class DocumentService implements DocumentUseCase {
     }
 
     @Override
-    public Mono<BulkUploadResult> uploadBulk(BulkUploadCommand cmd) {
-        List<MultipartFile> files = cmd.files();
-        if (files == null || files.isEmpty()) {
-            return Mono.just(new BulkUploadResult(
-                    List.of(),
-                    List.of(new BulkUploadResult.BulkUploadFailedItemResult("-", "files is required"))
-            ));
-        }
-
-        List<DocumentCreateResult> success = new ArrayList<>();
-        List<BulkUploadResult.BulkUploadFailedItemResult> failed = new ArrayList<>();
-
-        for (MultipartFile f : files) {
-            String filename = (f != null && f.getOriginalFilename() != null) ? f.getOriginalFilename() : "(unknown)";
-            try {
-                DocumentCreateResult res = txTemplate.execute(status -> {
-                    String title = buildTitle(cmd.titlePrefix(), filename);
-                    return uploadNewDocument(new UploadNewDocumentCommand(
-                            cmd.workspaceId(), cmd.userId(), title, f
-                    )).block();
-                });
-                success.add(res);
-            } catch (Exception e) {
-                failed.add(new BulkUploadResult.BulkUploadFailedItemResult(filename, toUserReason(e)));
-            }
-        }
-
-        return Mono.just(new BulkUploadResult(success, failed));
-    }
-
-    @Override
     @Transactional(readOnly = true)
     public Mono<PageResult<DocumentListItemResult>> listDocuments(ListDocumentsQuery query) {
         Pageable pageable = PageRequest.of(
@@ -263,69 +263,64 @@ public class DocumentService implements DocumentUseCase {
 
     @Override
     @Transactional(readOnly = true)
-    public Mono<String> getDocumentTextContent(GetDocumentTextContentQuery q) {
-        Document doc = documentRepository.findById(q.documentId())
-                .orElseThrow(() -> new IllegalArgumentException("문서를 찾을수 없음 : " + q.documentId()));
+    public Mono<String> getDocumentTextContent(GetDocumentFileQuery q) {
 
-        if (!Objects.equals(doc.getWorkspaceId(), q.workspaceId())) {
-            throw new IllegalArgumentException("금지 (different workspace)");
-        }
-
-        if ("DELETED".equalsIgnoreCase(doc.getStatus())) {
-            throw new IllegalArgumentException("삭제된 문서입니다.");
-        }
-
-        Long targetVersionId = (q.versionId() != null) ? q.versionId() : doc.getCurrentVersionId();
-        if (targetVersionId == null) {
-            throw new IllegalArgumentException("조회할 버전이 없습니다.");
-        }
-
-        DocumentVersion ver = documentVersionRepository.findById(targetVersionId)
-                .orElseThrow(() -> new IllegalArgumentException("버전을 찾을수 없음 : " + targetVersionId));
-
-        if (!Objects.equals(ver.getDocumentId(), doc.getDocumentId())) {
-            throw new IllegalArgumentException("금지 (version does not belong to document)");
-        }
-
-        Long fileId = ver.getFileId();
-        if (fileId == null) {
-            throw new IllegalArgumentException("파일이 연결되지 않았습니다.");
-        }
-
-        FileObject fo = fileObjectRepository.findById(fileId)
-                .orElseThrow(() -> new IllegalArgumentException("파일을 찾을수 없음 : " + fileId));
+        FileObject fo = resolveFileObject(q);
 
         String originalName = fo.getOriginalName();
         String ext = getExt(originalName);
-        if (!isTextExt(ext)) {
-            throw new IllegalArgumentException("텍스트 미리보기는 TXT/MD만 지원합니다. (현재: " + (ext.isBlank() ? "unknown" : ext) + ")");
-        }
 
-        if (!STORAGE_PROVIDER_LOCAL.equalsIgnoreCase(fo.getStorageProvider())) {
-            throw new IllegalArgumentException("현재 LOCAL 저장소만 지원합니다.");
+        if (!isTextExt(ext)) {
+            throw new IllegalArgumentException(
+                    "텍스트 미리보기는 TXT/MD만 지원합니다. (현재: " +
+                            (ext.isBlank() ? "unknown" : ext) + ")"
+            );
         }
 
         if (!StringUtils.hasText(fo.getStorageKey())) {
             throw new IllegalArgumentException("storageKey가 비어있습니다.");
         }
 
-        Path path = Paths.get(fo.getStorageKey());
-        if (!Files.exists(path)) {
-            throw new IllegalArgumentException("파일이 존재하지 않습니다.");
-        }
+        if ("S3".equalsIgnoreCase(fo.getStorageProvider())) {
 
-        long size = safeFileSize(path);
-        long max = 2 * 1024 * 1024;
-        if (size > max) {
-            throw new IllegalArgumentException("텍스트 파일이 너무 큽니다. (" + prettySize(size) + " > " + prettySize(max) + ")");
-        }
+            String body = fileStoragePort.loadAsString(fo.getStorageKey());
 
-        try {
-            String body = Files.readString(path, java.nio.charset.StandardCharsets.UTF_8);
+            long max = 2 * 1024 * 1024; // 2MB
+            if (body != null && body.getBytes(StandardCharsets.UTF_8).length > max) {
+                throw new IllegalArgumentException("텍스트 파일이 너무 큽니다. (2MB 초과)");
+            }
+
             return Mono.just(body);
-        } catch (Exception e) {
-            throw new IllegalStateException("텍스트 파일 읽기 실패", e);
         }
+
+        if ("LOCAL".equalsIgnoreCase(fo.getStorageProvider())) {
+
+            Path path = Paths.get(fo.getStorageKey());
+
+            if (!Files.exists(path)) {
+                throw new IllegalArgumentException("파일이 존재하지 않습니다.");
+            }
+
+            long size = safeFileSize(path);
+            long max = 2 * 1024 * 1024;
+
+            if (size > max) {
+                throw new IllegalArgumentException(
+                        "텍스트 파일이 너무 큽니다. (" +
+                                prettySize(size) + " > " +
+                                prettySize(max) + ")"
+                );
+            }
+
+            try {
+                String body = Files.readString(path, StandardCharsets.UTF_8);
+                return Mono.just(body);
+            } catch (Exception e) {
+                throw new IllegalStateException("텍스트 파일 읽기 실패", e);
+            }
+        }
+
+        throw new IllegalStateException("지원하지 않는 저장소: " + fo.getStorageProvider());
     }
 
     @Override
@@ -472,20 +467,37 @@ public class DocumentService implements DocumentUseCase {
     }
 
     private FileObject saveFileObject(Long workspaceId, MultipartFile file) {
+        try {
+            byte[] bytes = file.getBytes();
 
-        StoredFile stored = fileStoragePort.store(workspaceId, file);
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            digest.update(bytes);
+            String sha256 = HexFormat.of().formatHex(digest.digest());
 
-        return fileObjectRepository.save(
-                FileObject.builder()
-                        .workspaceId(workspaceId)
-                        .storageProvider(stored.storageProvider())
-                        .storageKey(stored.storageKey())
-                        .originalName(stored.originalName())
-                        .contentType(stored.contentType())
-                        .sizeBytes(stored.sizeBytes())
-                        .createdAt(LocalDateTime.now())
-                        .build()
-        );
+            StoredFile stored = fileStoragePort.store(workspaceId, file);
+
+            LocalDateTime now = LocalDateTime.now();
+
+            FileObject fo = FileObject.builder()
+                    .workspaceId(workspaceId)
+                    .storageProvider(stored.storageProvider())
+                    .storageKey(stored.storageKey())
+                    .originalName(file.getOriginalFilename())
+                    .contentType(
+                            file.getContentType() != null
+                                    ? file.getContentType()
+                                    : "application/octet-stream"
+                    )
+                    .sizeBytes(file.getSize())
+                    .checksumSha256(sha256)   // 🔥 핵심
+                    .createdAt(now)
+                    .build();
+
+            return fileObjectRepository.save(fo);
+
+        } catch (Exception e) {
+            throw new IllegalStateException("failed to store file", e);
+        }
     }
 
     private String sanitize(String name) {

@@ -7,12 +7,10 @@ import com.evido.api.document.application.dto.*;
 import com.evido.api.document.application.port.in.DocumentUseCase;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
-import org.springframework.core.io.Resource;
 import java.nio.charset.StandardCharsets;
 
 @RestController
@@ -34,7 +32,7 @@ public class DocumentController {
     @GetMapping(value = "/{documentId}/content", produces = MediaType.TEXT_PLAIN_VALUE)
     public Mono<ResponseEntity<String>> getTextContent(@PathVariable Long documentId, @ModelAttribute DocumentContentRequest req) {
 
-        var cmd = new GetDocumentTextContentQuery(
+        var cmd = new GetDocumentFileQuery(
                 workspaceId(),
                 userId(),
                 documentId,

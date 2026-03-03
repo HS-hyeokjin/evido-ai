@@ -6,22 +6,19 @@ import org.springframework.core.io.Resource;
 
 public interface DocumentUseCase {
 
+    Mono<BulkUploadResult> uploadBulk(BulkUploadCommand cmd);
+
     Mono<DocumentCreateResult> uploadNewDocument(UploadNewDocumentCommand cmd);
 
     Mono<DocumentCreateResult> uploadNewVersion(UploadNewVersionCommand cmd);
-
-    Mono<BulkUploadResult> uploadBulk(BulkUploadCommand cmd);
 
     Mono<PageResult<DocumentListItemResult>> listDocuments(ListDocumentsQuery query);
 
     Mono<Void> deleteDocument(DeleteDocumentCommand cmd);
 
-    Mono<String> getDocumentTextContent(GetDocumentTextContentQuery q);
-
     Mono<String> getDocumentDownloadUrl(GetDocumentFileQuery q);
-
-    Mono<Resource> getDocumentFileResource(GetDocumentFileQuery query);
 
     Mono<DocumentFileMetaResult> getDocumentFileMeta(GetDocumentFileQuery query);
 
+    Mono<String> getDocumentTextContent(GetDocumentFileQuery query);
 }
