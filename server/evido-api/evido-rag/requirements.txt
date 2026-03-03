@@ -6,3 +6,4 @@ fastembed
 sqlalchemy
 pymysql
 google-genai
+boto3
