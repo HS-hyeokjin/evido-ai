@@ -7,9 +7,9 @@ import com.evido.api.auth.application.port.in.LogoutUseCase;
 import com.evido.api.auth.application.dto.TokenPair;
 import com.evido.api.auth.infrastructure.cookie.AuthCookieManager;
 import com.evido.api.auth.infrastructure.security.CurrentUserProvider;
-import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -41,42 +41,48 @@ public class AuthController {
     }
 
     @PostMapping("/guest/token")
-    public ResponseEntity<Void> issueGuestToken(HttpServletResponse response) {
+    public ResponseEntity<Void> issueGuestToken() {
 
         TokenPair pair = issueTokenUseCase.issueGuest();
 
-        response.addCookie(cookieManager.createAccessToken(pair.access()));
-        response.addCookie(cookieManager.createRefreshToken(pair.refresh()));
+        ResponseCookie access = cookieManager.createAccessToken(pair.access());
+        ResponseCookie refresh = cookieManager.createRefreshToken(pair.refresh());
 
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok()
+                .header("Set-Cookie", access.toString())
+                .header("Set-Cookie", refresh.toString())
+                .build();
     }
 
     @PostMapping("/refresh")
     public ResponseEntity<Void> refresh(
-            @CookieValue("REFRESH_TOKEN") String refreshToken,
-            HttpServletResponse response
+            @CookieValue("REFRESH_TOKEN") String refreshToken
     ) {
         TokenPair pair = refreshTokenUseCase.refresh(refreshToken);
 
-        response.addCookie(cookieManager.createAccessToken(pair.access()));
-        response.addCookie(cookieManager.createRefreshToken(pair.refresh()));
+        ResponseCookie access = cookieManager.createAccessToken(pair.access());
+        ResponseCookie refresh = cookieManager.createRefreshToken(pair.refresh());
 
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok()
+                .header("Set-Cookie", access.toString())
+                .header("Set-Cookie", refresh.toString())
+                .build();
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<Void> logout(
-            Authentication authentication,
-            HttpServletResponse response
-    ) {
+    public ResponseEntity<Void> logout(Authentication authentication) {
+
         if (authentication != null) {
             String userId = (String) authentication.getPrincipal();
             logoutUseCase.logout(userId);
         }
 
-        response.addCookie(cookieManager.deleteAccessToken());
-        response.addCookie(cookieManager.deleteRefreshToken());
+        ResponseCookie deleteAccess = cookieManager.deleteAccessToken();
+        ResponseCookie deleteRefresh = cookieManager.deleteRefreshToken();
 
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok()
+                .header("Set-Cookie", deleteAccess.toString())
+                .header("Set-Cookie", deleteRefresh.toString())
+                .build();
     }
 }

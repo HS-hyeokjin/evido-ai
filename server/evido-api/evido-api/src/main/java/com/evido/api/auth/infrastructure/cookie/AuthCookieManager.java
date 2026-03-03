@@ -1,6 +1,6 @@
 package com.evido.api.auth.infrastructure.cookie;
 
-import jakarta.servlet.http.Cookie;
+import org.springframework.http.ResponseCookie;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -9,35 +9,43 @@ public class AuthCookieManager {
     private static final String ACCESS = "ACCESS_TOKEN";
     private static final String REFRESH = "REFRESH_TOKEN";
 
-    public Cookie createAccessToken(String token) {
-        Cookie cookie = new Cookie(ACCESS, token);
-        cookie.setHttpOnly(true);
-        cookie.setSecure(true);
-        cookie.setPath("/");
-        cookie.setMaxAge(900);
-        return cookie;
+    public ResponseCookie createAccessToken(String token) {
+        return ResponseCookie.from(ACCESS, token)
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("None")     // 🔥 핵심
+                .path("/")
+                .maxAge(900)
+                .build();
     }
 
-    public Cookie createRefreshToken(String token) {
-        Cookie cookie = new Cookie(REFRESH, token);
-        cookie.setHttpOnly(true);
-        cookie.setSecure(true);
-        cookie.setPath("/");
-        cookie.setMaxAge(604800);
-        return cookie;
+    public ResponseCookie createRefreshToken(String token) {
+        return ResponseCookie.from(REFRESH, token)
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("None")     // 🔥 핵심
+                .path("/")
+                .maxAge(604800)
+                .build();
     }
 
-    public Cookie deleteAccessToken() {
-        Cookie cookie = new Cookie(ACCESS, null);
-        cookie.setPath("/");
-        cookie.setMaxAge(0);
-        return cookie;
+    public ResponseCookie deleteAccessToken() {
+        return ResponseCookie.from(ACCESS, "")
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("None")
+                .path("/")
+                .maxAge(0)
+                .build();
     }
 
-    public Cookie deleteRefreshToken() {
-        Cookie cookie = new Cookie(REFRESH, null);
-        cookie.setPath("/");
-        cookie.setMaxAge(0);
-        return cookie;
+    public ResponseCookie deleteRefreshToken() {
+        return ResponseCookie.from(REFRESH, "")
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("None")
+                .path("/")
+                .maxAge(0)
+                .build();
     }
 }

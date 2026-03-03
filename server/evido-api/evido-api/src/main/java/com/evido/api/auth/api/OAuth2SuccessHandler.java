@@ -41,7 +41,7 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
         addCookie(response, "ACCESS_TOKEN", tokenPair.access(), 60 * 15);
         addCookie(response, "REFRESH_TOKEN", tokenPair.refresh(), 60 * 60 * 24 * 7);
 
-        response.sendRedirect("http://localhost:5173/");
+        response.sendRedirect("https://evido-web.vercel.app/");
     }
 
     private void addCookie(HttpServletResponse response,
