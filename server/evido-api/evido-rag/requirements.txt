@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+gunicorn
+qdrant-client
+fastembed
+sqlalchemy
+pymysql
