@@ -5,12 +5,15 @@ from app.services.llm_gemini import GeminiLLM
 from app.db.session import get_engine
 from app.repositories.document_chunk_repo import get_chunks_by_ids
 from app.services.llm_ollama import OllamaLLM
-
+from app.services.llm_groq import GroqLLM
+_llm = GroqLLM()
 
 router = APIRouter()
 _index = VectorIndex()
 # _llm = GeminiLLM()
-_llm = OllamaLLM()
+#_llm = OllamaLLM()
+_llm = GroqLLM()
+
 
 @router.post("", response_model=AnswerResponse)
 def answer(req: AnswerRequest):
