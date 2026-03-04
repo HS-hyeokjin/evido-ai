@@ -11,7 +11,7 @@ class GroqLLM:
 
         self.client = Groq(api_key=self.api_key)
 
-        self.model = os.getenv("GROQ_MODEL", "llama3-70b-8192")
+        self.model = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
         self.timeout = float(os.getenv("GROQ_TIMEOUT", "60"))
 
         self.max_evidence_chunks = int(os.getenv("EVIDENCE_TOPK", "8"))
