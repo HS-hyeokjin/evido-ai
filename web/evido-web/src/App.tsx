@@ -14,10 +14,8 @@ const router = createBrowserRouter([
     {
         element: <AppLayout />,
         children: [
-            {
-                path: "/",
-                element: <Navigate to="/workspace/1" replace />
-            },
+
+            { path: "/", element: <Navigate to="/workspace/default/chat/default" replace /> },
 
             {
                 path: "/workspace/:workspaceId",
@@ -31,6 +29,7 @@ const router = createBrowserRouter([
 
             { path: "/help", element: <HelpPage /> },
             { path: "/login", element: <LoginPage /> },
+
         ],
     },
 ]);

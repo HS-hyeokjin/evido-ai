@@ -1,9 +1,10 @@
-import {useEffect, useMemo, useRef, useState} from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useParams } from "react-router-dom";
 import Card from "../../components/common/Card";
 import Input from "../../components/common/Input";
 import Button from "../../components/common/Button";
 import api from "../../api/client";
-import {SlidersHorizontal, Send, Sparkles, FileText, FolderOpen, RefreshCw, Search, Download,} from "lucide-react";
+import { SlidersHorizontal, Send, Sparkles, FileText, FolderOpen, RefreshCw, Search, Download } from "lucide-react";
 import TextViewer from "../../components/viewers/TextViewer";
 import PdfViewer from "../../components/viewers/PdfViewer";
 
@@ -28,7 +29,12 @@ type AskResponse = {
 };
 
 type ChatMessage =
-    | { id: string; role: "user"; text: string; createdAt: number }
+    | {
+    id: string;
+    role: "user";
+    text: string;
+    createdAt: number;
+}
     | {
     id: string;
     role: "assistant";
@@ -48,17 +54,34 @@ function getExt(name?: string | null) {
 }
 
 export default function AskPage() {
+    const { workspaceId: workspaceIdParam, chatId: chatIdParam } = useParams();
+
+    const workspaceId = Number(workspaceIdParam);
+    const chatId = Number(chatIdParam);
+
     const [q, setQ] = useState("");
-    const [workspaceId, setWorkspaceId] = useState<number>(1);
     const [topK, setTopK] = useState<number>(5);
 
     const [loading, setLoading] = useState(false);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const listRef = useRef<HTMLDivElement | null>(null);
 
-    const canAsk = useMemo(() => !!q.trim() && !loading, [q, loading]);
+    const canAsk = useMemo(() => {
+        return !!q.trim() && !loading && Number.isFinite(workspaceId) && Number.isFinite(chatId);
+    }, [q, loading, workspaceId, chatId]);
 
     const [docListOpen, setDocListOpen] = useState(true);
+
+    const [docLoading, setDocLoading] = useState(false);
+    const [docError, setDocError] = useState<string | null>(null);
+    const [docPage, setDocPage] = useState<PageResponse<DocumentListItem> | null>(null);
+
+    const [docQuery, setDocQuery] = useState("");
+    const [docPageNo, setDocPageNo] = useState(0);
+    const docSize = 10;
+
+    const [selectedDoc, setSelectedDoc] = useState<DocumentListItem | null>(null);
+    const [previewUrl, setPreviewUrl] = useState<string>("");
 
     const scrollToBottom = () => {
         setTimeout(() => {
@@ -74,7 +97,7 @@ export default function AskPage() {
             prev.map((m) => {
                 if (m.role !== "assistant") return m;
                 if (m.id !== assistantMsgId) return m;
-                return {...m, sourcesOpen: !m.sourcesOpen};
+                return { ...m, sourcesOpen: !m.sourcesOpen };
             })
         );
     };
@@ -82,6 +105,11 @@ export default function AskPage() {
     const ask = async () => {
         const text = q.trim();
         if (!text) return;
+
+        if (!Number.isFinite(workspaceId) || !Number.isFinite(chatId)) {
+            alert("워크스페이스 또는 채팅 정보가 올바르지 않습니다.");
+            return;
+        }
 
         const userMsg: ChatMessage = {
             id: crypto.randomUUID(),
@@ -110,8 +138,8 @@ export default function AskPage() {
 
             const payload = {
                 queryText: text,
-                workspaceId: Number(workspaceId),
-                topK: Number(topK),
+                workspaceId,
+                topK,
             };
 
             const res = await api.post<AskResponse>("/api/qa/answer", payload);
@@ -141,7 +169,13 @@ export default function AskPage() {
                 prev.map((m) => {
                     if (m.role !== "assistant") return m;
                     if (m.id !== assistantPlaceholderId) return m;
-                    return {...m, loading: false, text: msg, evidences: [], sourcesOpen: false};
+                    return {
+                        ...m,
+                        loading: false,
+                        text: msg,
+                        evidences: [],
+                        sourcesOpen: false,
+                    };
                 })
             );
 
@@ -155,17 +189,9 @@ export default function AskPage() {
         if (e.key === "Enter") ask();
     };
 
-    const [docLoading, setDocLoading] = useState(false);
-    const [docError, setDocError] = useState<string | null>(null);
-    const [docPage, setDocPage] = useState<PageResponse<DocumentListItem> | null>(null);
-
-    const [docQuery, setDocQuery] = useState("");
-    const [docPageNo, setDocPageNo] = useState(0);
-    const docSize = 10;
-
-    const [selectedDoc, setSelectedDoc] = useState<DocumentListItem | null>(null);
-
     const fetchDocs = async () => {
+        if (!Number.isFinite(workspaceId)) return;
+
         try {
             setDocLoading(true);
             setDocError(null);
@@ -175,11 +201,15 @@ export default function AskPage() {
                 page: docPageNo,
                 size: docSize,
                 sort: "createdAt,desc",
-            });
+                workspaceId,
+            } as any);
 
             setDocPage(data);
 
-            if (selectedDoc && !data.content.some((x) => x.documentId === selectedDoc.documentId)) {
+            if (
+                selectedDoc &&
+                !data.content.some((x) => x.documentId === selectedDoc.documentId)
+            ) {
                 setSelectedDoc(null);
             }
         } catch (e: any) {
@@ -194,9 +224,25 @@ export default function AskPage() {
         fetchDocs();
     }, [docPageNo, workspaceId]);
 
+    useEffect(() => {
+        setDocPageNo(0);
+    }, [workspaceId]);
+
     const docs = docPage?.content ?? [];
 
     const selectedExt = getExt(selectedDoc?.filename);
+    const isTextFile =
+        selectedExt === "txt" || selectedExt === "md" || selectedExt === "markdown";
+    const isPdf = selectedExt === "pdf";
+
+    const textUrl = selectedDoc
+        ? `/api/documents/${selectedDoc.documentId}/content`
+        : "";
+
+    const getDownloadUrl = async (documentId: number) => {
+        const { data } = await api.get<string>(`/api/documents/${documentId}/download`);
+        return data;
+    };
 
     useEffect(() => {
         const fetchPreview = async () => {
@@ -223,27 +269,17 @@ export default function AskPage() {
         fetchPreview();
     }, [selectedDoc]);
 
-    const isTextFile = selectedExt === "txt" || selectedExt === "md" || selectedExt === "markdown";
-    const isPdf = selectedExt === "pdf";
-
-    const textUrl = selectedDoc ? `/api/documents/${selectedDoc.documentId}/content` : "";
-
-    const [previewUrl, setPreviewUrl] = useState<string>("");
-
-    const getDownloadUrl = async (documentId: number) => {
-        const { data } = await api.get<string>(
-            `/api/documents/${documentId}/download`
-        );
-        return data;
-    };
-
     const onDeleteDoc = async (documentId: number) => {
         if (!confirm("문서를 삭제하시겠습니까?")) return;
+
         try {
             setDocLoading(true);
             await deleteDocument(documentId);
             await fetchDocs();
-            if (selectedDoc?.documentId === documentId) setSelectedDoc(null);
+
+            if (selectedDoc?.documentId === documentId) {
+                setSelectedDoc(null);
+            }
         } catch (e: any) {
             console.error(e);
             alert(e?.response?.data?.message ?? "삭제 실패");
@@ -252,44 +288,66 @@ export default function AskPage() {
         }
     };
 
+    if (!Number.isFinite(workspaceId) || !Number.isFinite(chatId)) {
+        return (
+            <div className="grid min-h-[70vh] place-items-center">
+                <div className="rounded-2xl border border-rose-200 bg-rose-50 px-6 py-5 text-center">
+                    <div className="text-base font-black text-rose-700">
+                        잘못된 접근입니다
+                    </div>
+                    <div className="mt-2 text-sm text-rose-600">
+                        워크스페이스 또는 채팅 경로가 올바르지 않습니다.
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
-        <div className="grid max-w-6xl grid-cols-1 gap-4 lg:grid-cols-12">
-            <div className="lg:col-span-7 space-y-4">
+        <div className="grid max-w-7xl grid-cols-1 gap-4 lg:grid-cols-12">
+            <div className="space-y-4 lg:col-span-7">
                 <div className="flex items-start justify-between gap-3">
                     <div>
                         <h1 className="flex items-center gap-2 text-xl font-black text-slate-900">
-                            <Sparkles className="h-5 w-5 text-primary-600"/>
+                            <Sparkles className="h-5 w-5 text-primary-600" />
                             문서 Q&A
                         </h1>
+                        <p className="mt-1 text-sm text-slate-500">
+                            업로드한 문서를 기준으로 질문하고 근거를 확인할 수 있어요.
+                        </p>
                     </div>
 
-                    <div
-                        className="hidden sm:flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600">
-                        <FileText className="h-4 w-4"/>
-                        Workspace #{workspaceId}
+                    <div className="hidden items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 sm:flex">
+                        <FileText className="h-4 w-4" />
+                        Workspace #{workspaceId} · Chat #{chatId}
                     </div>
                 </div>
 
                 <Card>
                     <div className="flex items-center gap-2 text-sm font-extrabold text-slate-800">
-                        <SlidersHorizontal className="h-4 w-4 text-slate-500"/>
+                        <SlidersHorizontal className="h-4 w-4 text-slate-500" />
                         검색 설정
                     </div>
 
                     <div className="mt-3 grid gap-3 sm:grid-cols-2">
                         <div>
-                            <div className="mb-1 text-xs font-bold text-slate-500">workspaceId</div>
+                            <div className="mb-1 text-xs font-bold text-slate-500">
+                                topK
+                            </div>
                             <Input
-                                value={workspaceId}
-                                onChange={(e) => setWorkspaceId(Number(e.target.value))}
-                                placeholder="workspaceId"
+                                value={topK}
+                                onChange={(e) => setTopK(Number(e.target.value))}
+                                placeholder="topK (기본 5)"
                             />
                         </div>
 
                         <div>
-                            <div className="mb-1 text-xs font-bold text-slate-500">topK</div>
-                            <Input value={topK} onChange={(e) => setTopK(Number(e.target.value))}
-                                   placeholder="topK (기본 5)"/>
+                            <div className="mb-1 text-xs font-bold text-slate-500">
+                                현재 채팅
+                            </div>
+                            <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-600">
+                                Workspace #{workspaceId} / Chat #{chatId}
+                            </div>
                         </div>
                     </div>
                 </Card>
@@ -302,13 +360,15 @@ export default function AskPage() {
                         {messages.length === 0 ? (
                             <div className="grid h-full place-items-center">
                                 <div className="text-center">
-                                    <div
-                                        className="mx-auto mb-3 grid h-10 w-10 place-items-center rounded-2xl bg-primary-50 text-primary-700">
-                                        <Sparkles className="h-5 w-5"/>
+                                    <div className="mx-auto mb-3 grid h-10 w-10 place-items-center rounded-2xl bg-primary-50 text-primary-700">
+                                        <Sparkles className="h-5 w-5" />
                                     </div>
-                                    <div className="text-sm font-bold text-slate-700">문서 기준으로 질문해보세요</div>
-                                    <div className="mt-1 text-xs text-slate-400">예: “evido 사용방법을 알려줘”, “문서기반 검색 서비스가
-                                        뭐야?”
+                                    <div className="text-sm font-bold text-slate-700">
+                                        문서 기준으로 질문해보세요
+                                    </div>
+                                    <div className="mt-1 text-xs text-slate-400">
+                                        예: “EVIDO 사용 방법을 알려줘”, “문서 기반 검색
+                                        서비스가 뭐야?”
                                     </div>
                                 </div>
                             </div>
@@ -316,20 +376,32 @@ export default function AskPage() {
                             <div className="space-y-3">
                                 {messages.map((m) => {
                                     const isUser = m.role === "user";
+
                                     return (
-                                        <div key={m.id} className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
+                                        <div
+                                            key={m.id}
+                                            className={`flex ${
+                                                isUser ? "justify-end" : "justify-start"
+                                            }`}
+                                        >
                                             <div className="max-w-[88%]">
-                                                {!isUser && <div
-                                                    className="mb-1 ml-2 text-[11px] font-extrabold text-slate-400">EVIDO
-                                                    AI</div>}
+                                                {!isUser && (
+                                                    <div className="mb-1 ml-2 text-[11px] font-extrabold text-slate-400">
+                                                        EVIDO AI
+                                                    </div>
+                                                )}
 
                                                 <div
                                                     className={[
                                                         "rounded-2xl px-4 py-3 text-sm shadow-sm",
-                                                        isUser ? "bg-slate-900 text-white shadow-slate-200" : "bg-white text-slate-900 border border-slate-200",
+                                                        isUser
+                                                            ? "bg-slate-900 text-white shadow-slate-200"
+                                                            : "border border-slate-200 bg-white text-slate-900",
                                                     ].join(" ")}
                                                 >
-                                                    <div className="whitespace-pre-wrap leading-relaxed">{m.text}</div>
+                                                    <div className="whitespace-pre-wrap leading-relaxed">
+                                                        {m.text}
+                                                    </div>
 
                                                     {m.role === "assistant" && !m.loading && (
                                                         <div className="mt-3">
@@ -344,43 +416,61 @@ export default function AskPage() {
                                                                             : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
                                                                     ].join(" ")}
                                                                 >
-                                                                    {m.sourcesOpen ? "근거 닫기" : "근거 보기"}
+                                                                    {m.sourcesOpen
+                                                                        ? "근거 닫기"
+                                                                        : "근거 보기"}
                                                                 </button>
 
-                                                                <span
-                                                                    className="text-[11px] text-slate-400">{m.evidences?.length ? `${m.evidences.length}개` : "0개"}</span>
+                                                                <span className="text-[11px] text-slate-400">
+                                                                    {m.evidences?.length
+                                                                        ? `${m.evidences.length}개`
+                                                                        : "0개"}
+                                                                </span>
                                                             </div>
 
                                                             {m.sourcesOpen && (
-                                                                <div
-                                                                    className="mt-2 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                                                                <div className="mt-2 rounded-2xl border border-slate-200 bg-slate-50 p-3">
                                                                     {m.evidences?.length ? (
                                                                         <ul className="space-y-2">
-                                                                            {m.evidences.map((e, idx) => (
-                                                                                <li key={idx}
-                                                                                    className="rounded-xl bg-white p-3 border border-slate-200">
-                                                                                    <div
-                                                                                        className="flex flex-wrap items-center gap-2 text-xs font-extrabold text-slate-700">
-                                                                                        <span
-                                                                                            className="rounded-md bg-slate-100 px-2 py-0.5">chunk #{e.chunkId ?? "?"}</span>
-                                                                                        <span
-                                                                                            className="text-slate-500">index {e.chunkIndex ?? "?"}</span>
-                                                                                        <span
-                                                                                            className="text-slate-500">
-                                              score {typeof e.score === "number" ? e.score.toFixed(4) : "?"}
-                                            </span>
-                                                                                    </div>
+                                                                            {m.evidences.map(
+                                                                                (e, idx) => (
+                                                                                    <li
+                                                                                        key={idx}
+                                                                                        className="rounded-xl border border-slate-200 bg-white p-3"
+                                                                                    >
+                                                                                        <div className="flex flex-wrap items-center gap-2 text-xs font-extrabold text-slate-700">
+                                                                                            <span className="rounded-md bg-slate-100 px-2 py-0.5">
+                                                                                                chunk #
+                                                                                                {e.chunkId ?? "?"}
+                                                                                            </span>
+                                                                                            <span className="text-slate-500">
+                                                                                                index{" "}
+                                                                                                {e.chunkIndex ?? "?"}
+                                                                                            </span>
+                                                                                            <span className="text-slate-500">
+                                                                                                score{" "}
+                                                                                                {typeof e.score ===
+                                                                                                "number"
+                                                                                                    ? e.score.toFixed(
+                                                                                                        4
+                                                                                                    )
+                                                                                                    : "?"}
+                                                                                            </span>
+                                                                                        </div>
 
-                                                                                    <div
-                                                                                        className="mt-2 whitespace-pre-wrap text-xs leading-relaxed text-slate-600">
-                                                                                        {e.contentHead ?? "(contentHead 없음)"}
-                                                                                    </div>
-                                                                                </li>
-                                                                            ))}
+                                                                                        <div className="mt-2 whitespace-pre-wrap text-xs leading-relaxed text-slate-600">
+                                                                                            {e.contentHead ??
+                                                                                                "(contentHead 없음)"}
+                                                                                        </div>
+                                                                                    </li>
+                                                                                )
+                                                                            )}
                                                                         </ul>
                                                                     ) : (
-                                                                        <div className="text-xs text-slate-500">근거 데이터가
-                                                                            없습니다.</div>
+                                                                        <div className="text-xs text-slate-500">
+                                                                            근거 데이터가
+                                                                            없습니다.
+                                                                        </div>
                                                                     )}
                                                                 </div>
                                                             )}
@@ -397,23 +487,31 @@ export default function AskPage() {
 
                     <div className="mt-3 flex gap-2">
                         <div className="flex-1">
-                            <Input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={onEnterAsk}
-                                   placeholder="질문을 입력하세요 (Enter 전송)"/>
+                            <Input
+                                value={q}
+                                onChange={(e) => setQ(e.target.value)}
+                                onKeyDown={onEnterAsk}
+                                placeholder="질문을 입력하세요 (Enter 전송)"
+                            />
                         </div>
 
                         <Button onClick={ask} disabled={!canAsk} className="min-w-[96px]">
-              <span className="inline-flex items-center gap-2">
-                <Send className="h-4 w-4"/>
-                  {loading ? "생성 중..." : "전송"}
-              </span>
+                            <span className="inline-flex items-center gap-2">
+                                <Send className="h-4 w-4" />
+                                {loading ? "생성 중..." : "전송"}
+                            </span>
                         </Button>
                     </div>
 
-                    {!q.trim() && <div className="mt-2 text-xs text-slate-400">질문을 입력해야 전송 가능합니다.</div>}
+                    {!q.trim() && (
+                        <div className="mt-2 text-xs text-slate-400">
+                            질문을 입력해야 전송 가능합니다.
+                        </div>
+                    )}
                 </Card>
             </div>
 
-            <div className="lg:col-span-5 space-y-4">
+            <div className="space-y-4 lg:col-span-5">
                 <Card>
                     <div className="flex items-center justify-between">
                         <button
@@ -421,11 +519,11 @@ export default function AskPage() {
                             onClick={() => setDocListOpen((v) => !v)}
                             className="flex items-center gap-2 text-sm font-extrabold text-slate-800"
                         >
-                            <FolderOpen className="h-4 w-4 text-slate-500"/>
+                            <FolderOpen className="h-4 w-4 text-slate-500" />
                             문서 리스트
                             <span className="ml-1 text-xs text-slate-400">
-        {docListOpen ? "▲" : "▼"}
-      </span>
+                                {docListOpen ? "▲" : "▼"}
+                            </span>
                         </button>
 
                         <button
@@ -434,19 +532,20 @@ export default function AskPage() {
                             disabled={docLoading}
                             className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
                         >
-                            <RefreshCw className={`h-4 w-4 ${docLoading ? "animate-spin" : ""}`}/>
+                            <RefreshCw
+                                className={`h-4 w-4 ${docLoading ? "animate-spin" : ""}`}
+                            />
                             새로고침
                         </button>
                     </div>
 
                     <div
-                        className={`transition-all duration-300 overflow-hidden ${
-                            docListOpen ? "max-h-[1000px] opacity-100 mt-4" : "max-h-0 opacity-0"
+                        className={`overflow-hidden transition-all duration-300 ${
+                            docListOpen ? "mt-4 max-h-[1000px] opacity-100" : "max-h-0 opacity-0"
                         }`}
                     >
-                        <div
-                            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                            <Search className="h-4 w-4 text-slate-400"/>
+                        <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                            <Search className="h-4 w-4 text-slate-400" />
                             <input
                                 value={docQuery}
                                 onChange={(e) => {
@@ -459,8 +558,7 @@ export default function AskPage() {
                         </div>
 
                         {docError && (
-                            <div
-                                className="mt-3 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm font-semibold text-rose-700">
+                            <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm font-semibold text-rose-700">
                                 {docError}
                             </div>
                         )}
@@ -468,7 +566,9 @@ export default function AskPage() {
                         <div className="mt-3 rounded-xl border border-slate-200 bg-white">
                             <div className="max-h-[340px] overflow-auto">
                                 {docLoading ? (
-                                    <div className="px-4 py-4 text-sm text-slate-500">불러오는 중...</div>
+                                    <div className="px-4 py-4 text-sm text-slate-500">
+                                        불러오는 중...
+                                    </div>
                                 ) : docs.length === 0 ? (
                                     <div className="px-4 py-4 text-sm text-slate-500">
                                         등록된 문서가 없습니다.
@@ -491,40 +591,45 @@ export default function AskPage() {
                                             return (
                                                 <li key={d.documentId} className="px-3 py-3">
                                                     <div
-                                                        className={`group rounded-xl px-3 py-2 transition cursor-pointer ${
+                                                        className={`group cursor-pointer rounded-xl px-3 py-2 transition ${
                                                             active
-                                                                ? "bg-primary-50 border border-primary-200"
+                                                                ? "border border-primary-200 bg-primary-50"
                                                                 : "hover:bg-slate-50"
                                                         }`}
                                                         onClick={() => setSelectedDoc(d)}
                                                     >
                                                         <div className="flex items-start justify-between gap-2">
                                                             <div className="min-w-0">
-                                                                <div
-                                                                    className="truncate text-sm font-bold text-slate-900">
-                                                                    {d.title ?? `문서 #${d.documentId}`}
+                                                                <div className="truncate text-sm font-bold text-slate-900">
+                                                                    {d.title ??
+                                                                        `문서 #${d.documentId}`}
                                                                 </div>
                                                                 <div className="truncate text-xs text-slate-400">
-                                                                    {d.filename ?? `doc #${d.documentId}`}
+                                                                    {d.filename ??
+                                                                        `doc #${d.documentId}`}
                                                                 </div>
                                                             </div>
 
-                                                            <span
-                                                                className="shrink-0 rounded-md bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-600">{badge}
+                                                            <span className="shrink-0 rounded-md bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-600">
+                                                                {badge}
                                                             </span>
                                                         </div>
 
-                                                        <div
-                                                            className="mt-3 flex items-center justify-between opacity-0 group-hover:opacity-100 transition">
+                                                        <div className="mt-3 flex items-center justify-between opacity-0 transition group-hover:opacity-100">
                                                             <button
                                                                 type="button"
                                                                 onClick={async (e) => {
                                                                     e.stopPropagation();
                                                                     try {
-                                                                        const url = await getDownloadUrl(d.documentId);
+                                                                        const url =
+                                                                            await getDownloadUrl(
+                                                                                d.documentId
+                                                                            );
                                                                         window.open(url, "_blank");
                                                                     } catch (err) {
-                                                                        alert("다운로드 실패");
+                                                                        alert(
+                                                                            "다운로드 실패"
+                                                                        );
                                                                     }
                                                                 }}
                                                                 className="text-xs font-semibold text-slate-500 hover:text-slate-900"
@@ -563,9 +668,12 @@ export default function AskPage() {
                                 <div className="flex items-center gap-2">
                                     <button
                                         type="button"
-                                        onClick={() => setDocPageNo((p) => Math.max(0, p - 1))}
+                                        onClick={() =>
+                                            setDocPageNo((p) => Math.max(0, p - 1))
+                                        }
                                         disabled={docLoading || docPageNo <= 0}
-                                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60">
+                                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                                    >
                                         이전
                                     </button>
 
@@ -600,6 +708,7 @@ export default function AskPage() {
                     <div className="mt-3">
                         {!selectedDoc ? (
                             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+                                선택한 문서가 없습니다.
                             </div>
                         ) : isPdf ? (
                             <PdfViewer
@@ -611,26 +720,36 @@ export default function AskPage() {
                         ) : isTextFile ? (
                             <TextViewer
                                 url={textUrl}
-                                filename={selectedDoc.filename ?? `doc-${selectedDoc.documentId}.txt`}
-                                title={selectedDoc.title ?? `문서 #${selectedDoc.documentId}`}
+                                filename={
+                                    selectedDoc.filename ??
+                                    `doc-${selectedDoc.documentId}.txt`
+                                }
+                                title={
+                                    selectedDoc.title ?? `문서 #${selectedDoc.documentId}`
+                                }
                             />
                         ) : (
                             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-                                현재는 <span className="font-black">PDF / TXT / MD</span>만 미리보기를 지원해요.
+                                현재는 <span className="font-black">PDF / TXT / MD</span>
+                                만 미리보기를 지원해요.
                                 <div className="mt-2 text-xs text-slate-500">
-                                    선택된 파일: {selectedDoc.filename ?? `doc #${selectedDoc.documentId}`}
+                                    선택된 파일:{" "}
+                                    {selectedDoc.filename ??
+                                        `doc #${selectedDoc.documentId}`}
                                 </div>
 
                                 <button
                                     type="button"
                                     onClick={async () => {
                                         if (!selectedDoc) return;
-                                        const url = await getDownloadUrl(selectedDoc.documentId);
+                                        const url = await getDownloadUrl(
+                                            selectedDoc.documentId
+                                        );
                                         window.open(url, "_blank");
                                     }}
                                     className="mt-3 inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100"
                                 >
-                                    <Download className="h-4 w-4"/>
+                                    <Download className="h-4 w-4" />
                                     다운로드로 열기
                                 </button>
                             </div>
