@@ -2,16 +2,14 @@ package com.evido.api.auth.infrastructure.persistence;
 
 import com.evido.api.auth.domain.User;
 import com.evido.api.auth.application.port.out.UserRepositoryPort;
+import lombok.RequiredArgsConstructor;
 
 import java.util.Optional;
 
+@RequiredArgsConstructor
 public class UserRepositoryAdapter implements UserRepositoryPort {
 
     private final UserJpaRepository repository;
-
-    public UserRepositoryAdapter(UserJpaRepository repository) {
-        this.repository = repository;
-    }
 
     @Override
     public Optional<User> findByEmail(String email) {

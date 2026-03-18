@@ -3,7 +3,6 @@ package com.evido.api.auth.domain;
 import lombok.Getter;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Getter
 public class User {

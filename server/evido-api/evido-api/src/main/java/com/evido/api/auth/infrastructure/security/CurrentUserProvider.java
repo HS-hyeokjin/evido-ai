@@ -18,7 +18,7 @@ public class CurrentUserProvider {
             return s;
         }
 
-        throw new IllegalStateException("Unsupported principal type: " + principal.getClass());
+        throw new IllegalStateException("지원하지 않는 형식: " + principal.getClass());
     }
 
     public String getRole(Authentication authentication) {

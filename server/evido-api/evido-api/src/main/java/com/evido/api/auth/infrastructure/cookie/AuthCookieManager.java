@@ -13,7 +13,7 @@ public class AuthCookieManager {
         return ResponseCookie.from(ACCESS, token)
                 .httpOnly(true)
                 .secure(true)
-                .sameSite("None")     // 🔥 핵심
+                .sameSite("None")
                 .path("/")
                 .maxAge(900)
                 .build();
@@ -23,7 +23,7 @@ public class AuthCookieManager {
         return ResponseCookie.from(REFRESH, token)
                 .httpOnly(true)
                 .secure(true)
-                .sameSite("None")     // 🔥 핵심
+                .sameSite("None")
                 .path("/")
                 .maxAge(604800)
                 .build();

@@ -3,6 +3,7 @@ package com.evido.api.auth.infrastructure.persistence;
 import com.evido.api.auth.domain.Role;
 import jakarta.persistence.*;
 import lombok.Getter;
+import org.hibernate.annotations.UuidGenerator;
 
 import java.time.LocalDateTime;
 
@@ -13,7 +14,7 @@ public class UserEntity {
 
     @Id
     @GeneratedValue
-    @org.hibernate.annotations.UuidGenerator
+    @UuidGenerator
     private String id;
 
     @Column(unique = true)
@@ -21,7 +22,7 @@ public class UserEntity {
 
     private String name;
 
-    private String provider; // GOOGLE, null (guest)
+    private String provider;
 
     @Enumerated(EnumType.STRING)
     private Role role;
@@ -54,12 +55,4 @@ public class UserEntity {
         this.createdAt = LocalDateTime.now();
     }
 
-
-    public void setLastLoginAt(LocalDateTime lastLoginAt) {
-        this.lastLoginAt = lastLoginAt;
-    }
-
-    public void setRole(Role role) {
-        this.role = role;
-    }
 }
