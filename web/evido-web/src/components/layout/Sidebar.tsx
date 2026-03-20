@@ -1,34 +1,32 @@
 import { useEffect, useState } from "react";
 import { NavLink, useNavigate, useParams } from "react-router-dom";
-import api from "../../api/client";
 import Logo from "../../assets/Logo1.png";
-import { Plus, MessageSquareText, Settings } from "lucide-react";
-
-interface Workspace {
-    id: number;
-    name: string;
-}
-
-interface Chat {
-    id: number;
-    title: string;
-}
+import api from "../../api/client";
+import {
+    LayoutDashboard,
+    MessageSquareText,
+    Settings,
+    HelpCircle,
+    LogOut,
+    ChevronDown,
+    ChevronRight,
+} from "lucide-react";
 
 export default function Sidebar() {
-    const { workspaceId, chatId } = useParams();
-    const navigate = useNavigate();
 
-    const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
-    const [chats, setChats] = useState<Chat[]>([]);
+    const navigate = useNavigate();
+    const { workspaceId } = useParams();
+
+    const [workspaces, setWorkspaces] = useState<any[]>([]);
+    const [chats, setChats] = useState<any[]>([]);
+    const [wsOpen, setWsOpen] = useState(true);
 
     useEffect(() => {
         fetchWorkspaces();
     }, []);
 
     useEffect(() => {
-        if (workspaceId) {
-            fetchChats(workspaceId);
-        }
+        if (workspaceId) fetchChats(workspaceId);
     }, [workspaceId]);
 
     const fetchWorkspaces = async () => {
@@ -36,85 +34,137 @@ export default function Sidebar() {
         setWorkspaces(res.data);
     };
 
-    const fetchChats = async (workspaceId: string) => {
-        const res = await api.get(`/api/workspaces/${workspaceId}/chats`);
+    const fetchChats = async (wsId: string) => {
+        const res = await api.get(`/api/workspaces/${wsId}/chats`);
         setChats(res.data);
     };
 
-    const createWorkspace = async () => {
-        const name = prompt("워크스페이스 이름");
-        if (!name) return;
-
-        const res = await api.post("/api/workspaces", { name });
-        navigate(`/workspace/${res.data.id}/chat/default`);
+    const handleWorkspaceClick = (wsId: number) => {
+        setChats([]);
+        navigate(`/workspace/${wsId}`);
     };
-
-    const createChat = async () => {
-        const res = await api.post(`/api/workspaces/${workspaceId}/chats`);
-        navigate(`/workspace/${workspaceId}/chat/${res.data.id}`);
-    };
-
     return (
-        <aside className="w-64 border-r p-4 flex flex-col">
+        <aside className="flex h-screen w-64 flex-col border-r border-slate-200 bg-white/80 backdrop-blur-md p-4">
 
-            <div className="flex items-center gap-2 mb-6">
-                <img src={Logo} className="w-8 h-8" />
-                <span className="font-bold text-lg text-primary-600">EVIDO</span>
-            </div>
-
-            <div className="mb-4">
-                <div className="flex justify-between items-center mb-2">
-                    <span className="text-xs text-slate-400">WORKSPACE</span>
-                    <button onClick={createWorkspace}>
-                        <Plus size={14} />
-                    </button>
+            {/* LOGO */}
+            <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 rounded-xl bg-primary-50">
+                    <img src={Logo} className="h-6 w-6"/>
                 </div>
-
-                {workspaces.map(ws => (
-                    <div
-                        key={ws.id}
-                        onClick={() => navigate(`/workspace/${ws.id}/chat/default`)}
-                        className={`cursor-pointer px-2 py-1 rounded ${
-                            ws.id.toString() === workspaceId ? "bg-slate-100" : ""
-                        }`}
-                    >
-                        {ws.name}
-                    </div>
-                ))}
-            </div>
-
-            <div className="flex-1 overflow-y-auto">
-                <div className="flex justify-between items-center mb-2">
-                    <span className="text-xs text-slate-400">CHATS</span>
-                    <button onClick={createChat}>
-                        <Plus size={14} />
-                    </button>
+                <div>
+                    <div className="text-lg font-extrabold text-primary-600">EVIDO</div>
+                    <div className="text-[11px] text-slate-400">AI Assistant</div>
                 </div>
-
-                {chats.map(chat => (
-                    <NavLink
-                        key={chat.id}
-                        to={`/workspace/${workspaceId}/chat/${chat.id}`}
-                        className={({ isActive }) =>
-                            `block px-2 py-1 rounded ${
-                                isActive ? "bg-primary-50 text-primary-600" : ""
-                            }`
-                        }
-                    >
-                        <MessageSquareText size={14} className="inline mr-1" />
-                        {chat.title || "새 채팅"}
-                    </NavLink>
-                ))}
             </div>
 
+            {/* DASHBOARD */}
             <NavLink
-                to={`/workspace/${workspaceId}/settings`}
-                className="mt-4 text-sm flex items-center gap-2"
+                to="/"
+                end
+                className={({ isActive }) =>
+                    `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all
+                    ${
+                        isActive
+                            ? "bg-primary-50 text-primary-600 shadow-sm"
+                            : "text-slate-600 hover:bg-slate-100"
+                    }`
+                }
             >
-                <Settings size={14} />
-                설정
+                <LayoutDashboard size={16}/>
+                대시보드
             </NavLink>
 
+            {/* WORKSPACE */}
+            <div className="mt-6">
+
+                <button
+                    onClick={() => setWsOpen(!wsOpen)}
+                    className="flex items-center justify-between w-full px-3 py-2 text-[11px] font-bold text-slate-400 tracking-wider"
+                >
+                    WORKSPACES
+                    {wsOpen ? <ChevronDown size={14}/> : <ChevronRight size={14}/>}
+                </button>
+
+                {wsOpen && (
+                    <div className="mt-2 space-y-1">
+                        {workspaces.map(ws => (
+                            <div
+                                key={ws.id}
+                                onClick={() => handleWorkspaceClick(ws.id)}
+                                className={`group flex items-center px-3 py-2 rounded-lg text-sm cursor-pointer transition-all
+                                ${
+                                    ws.id.toString() === workspaceId
+                                        ? "bg-primary-50 text-primary-600"
+                                        : "text-slate-600 hover:bg-slate-100"
+                                }`}
+                            >
+                                <div className="w-2 h-2 rounded-full bg-primary-400 mr-2 opacity-60 group-hover:opacity-100"/>
+                                {ws.name}
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            {/* CHATS */}
+            {workspaceId && (
+                <div className="mt-6">
+
+                    <div className="px-3 text-[11px] text-slate-400 mb-2 font-bold tracking-wider">
+                        CHATS
+                    </div>
+
+                    <div className="space-y-1">
+                        {chats.map(chat => (
+                            <NavLink
+                                key={chat.id}
+                                to={`/workspace/${workspaceId}/chat/${chat.id}`}
+                                className={({ isActive }) =>
+                                    `flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all
+                                    ${
+                                        isActive
+                                            ? "bg-primary-50 text-primary-600"
+                                            : "text-slate-600 hover:bg-slate-100"
+                                    }`
+                                }
+                            >
+                                <MessageSquareText size={14}/>
+                                <span className="truncate">
+                                    {chat.title || "새 채팅"}
+                                </span>
+                            </NavLink>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* BOTTOM */}
+            <div className="mt-auto pt-6 border-t border-slate-200 space-y-1">
+
+                <NavLink
+                    to="/settings"
+                    className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition"
+                >
+                    <Settings size={14}/> 설정
+                </NavLink>
+
+                <NavLink
+                    to="/help"
+                    className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition"
+                >
+                    <HelpCircle size={14}/> 도움말
+                </NavLink>
+
+                <button
+                    onClick={async () => {
+                        await api.post("/api/auth/logout");
+                        window.location.reload();
+                    }}
+                    className="flex items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-red-50 rounded-lg transition"
+                >
+                    <LogOut size={14}/> 로그아웃
+                </button>
+            </div>
         </aside>
     );
 }
