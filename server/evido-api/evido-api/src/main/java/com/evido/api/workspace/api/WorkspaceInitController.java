@@ -29,7 +29,7 @@ public class WorkspaceInitController {
 
         return new WorkspaceInitResponse(
                 result.workspaceId(),
-                result.chatId()
+                result.conversationId()
         );
     }
 }

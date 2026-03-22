@@ -1,12 +1,11 @@
 package com.evido.api.workspace.application.service;
 
-import com.evido.api.chat.application.port.out.ChatRepositoryPort;
+import com.evido.api.conversation.application.port.out.ConversationRepositoryPort;
 import com.evido.api.workspace.application.dto.WorkspaceInitResult;
 import com.evido.api.workspace.application.port.in.WorkspaceInitUseCase;
 import com.evido.api.workspace.application.port.out.WorkspaceRepositoryPort;
-import com.evido.api.workspace.application.port.out.WorkspaceMemberRepositoryPort;
 import com.evido.api.workspace.domain.Workspace;
-import com.evido.api.chat.domain.Chat;
+import com.evido.api.conversation.domain.Conversation;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -17,7 +16,7 @@ import java.util.List;
 public class WorkspaceInitService implements WorkspaceInitUseCase {
 
     private final WorkspaceRepositoryPort workspaceRepository;
-    private final ChatRepositoryPort chatRepository;
+    private final ConversationRepositoryPort conversationRepository;
 
     @Override
     public WorkspaceInitResult init(String userId) {
@@ -34,15 +33,15 @@ public class WorkspaceInitService implements WorkspaceInitUseCase {
             workspace = workspaces.get(0);
         }
 
-        List<Chat> chats = chatRepository.findByWorkspaceId(workspace.getId());
+        List<Conversation> conversations = conversationRepository.findByWorkspaceId(workspace.getId());
 
-        Chat chat = chats.isEmpty()
-                ? chatRepository.createDefaultChat(workspace.getId())
-                : chats.get(0);
+        Conversation conversation = conversations.isEmpty()
+                ? conversationRepository.createDefaultConversation(workspace.getId())
+                : conversations.get(0);
 
         return new WorkspaceInitResult(
                 workspace.getId(),
-                chat.getId()
+                conversation.getId()
         );
     }
 }
