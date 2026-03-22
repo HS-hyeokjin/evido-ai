@@ -9,7 +9,7 @@ import {
     Send,
     Sparkles,
 } from "lucide-react";
-import FileViewerPanel from "../chat/FileViewerPanel.tsx";
+import FileViewerPanel from ".//FileViewerPanel.tsx";
 
 type Evidence = {
     chunkId: number | null;
@@ -24,7 +24,7 @@ type AskResponse = {
     evidences: Evidence[];
 };
 
-type ChatMessage =
+type ConversationMessage =
     | {
     id: string;
     role: "user";
@@ -43,28 +43,28 @@ type ChatMessage =
 
 export default function AskPage() {
 
-    const { workspaceId: wsParam, chatId: chatParam } = useParams();
+    const { workspaceId: wsParam, conversationId: conversationParam } = useParams();
 
     const workspaceId = Number(wsParam);
-    const chatId = Number(chatParam);
+    const conversationId = Number(conversationParam);
 
     const [q, setQ] = useState("");
     const [topK, setTopK] = useState<number>(5);
 
     const [loading, setLoading] = useState(false);
-    const [messages, setMessages] = useState<ChatMessage[]>([]);
+    const [messages, setMessages] = useState<ConversationMessage[]>([]);
     const listRef = useRef<HTMLDivElement | null>(null);
 
     const canAsk = useMemo(() => {
-        return !!q.trim() && !loading && workspaceId && chatId;
-    }, [q, loading, workspaceId, chatId]);
+        return !!q.trim() && !loading && workspaceId && conversationId;
+    }, [q, loading, workspaceId, conversationId]);
 
     useEffect(() => {
-        if (!chatId) return;
+        if (!conversationId) return;
 
         const fetchMessages = async () => {
             try {
-                const res = await api.get(`/api/chats/${chatId}/messages`);
+                const res = await api.get(`/api/conversations/${conversationId}/messages`);
 
                 setMessages(
                     res.data.map((m: any) => ({
@@ -80,7 +80,7 @@ export default function AskPage() {
         };
 
         fetchMessages();
-    }, [chatId]);
+    }, [conversationId]);
 
     const scrollToBottom = () => {
         setTimeout(() => {
@@ -127,13 +127,13 @@ export default function AskPage() {
             const res = await api.post<AskResponse>("/api/qa/answer", {
                 queryText: text,
                 workspaceId,
-                chatId,
+                conversationId,
                 topK,
             });
 
             const answer = res.data.answer;
 
-            await api.post(`/api/chats/${chatId}/messages`, {
+            await api.post(`/api/conversations/${conversationId}/messages`, {
                 question: text,
                 answer,
             });
@@ -172,7 +172,7 @@ export default function AskPage() {
         if (e.key === "Enter") ask();
     };
 
-    if (!workspaceId || !chatId) {
+    if (!workspaceId || !conversationId) {
         return (
             <div className="flex items-center justify-center h-[70vh]">
                 잘못된 접근입니다
@@ -192,7 +192,7 @@ export default function AskPage() {
                     </h1>
 
                     <div className="text-xs text-slate-500">
-                        Workspace #{workspaceId} / Chat #{chatId}
+                        Workspace #{workspaceId} / Conversation #{conversationId}
                     </div>
                 </div>
 

@@ -4,10 +4,10 @@ import AppLayout from "./components/layout/AppLayout";
 import DashboardPage from "./pages/dashboard/DashboardPage";
 import LoginPage from "./pages/auth/LoginPage";
 import DocumentsUploadPage from "./pages/documents/DocumentsUploadPage";
-import AskPage from "./pages/chat/AskPage";
+import AskPage from "./pages/conversation/AskPage";
 import SettingsPage from "./pages/setting/SettingsPage";
 import HelpPage from "./pages/help/HelpPage";
-import ChatListPage from "./pages/chat/ChatListPage";
+import ConversationListPage from "./pages/conversation/ConversationListPage";
 
 import "@react-pdf-viewer/core/lib/styles/index.css";
 import "@react-pdf-viewer/default-layout/lib/styles/index.css";
@@ -22,8 +22,8 @@ const router = createBrowserRouter([
             {
                 path: "/workspace/:workspaceId",
                 children: [
-                    { index: true, element: <ChatListPage /> },
-                    { path: "chat/:chatId", element: <AskPage /> },
+                    { index: true, element: <ConversationListPage /> },
+                    { path: "conversation/:conversationId", element: <AskPage /> },
                     { path: "documents/upload", element: <DocumentsUploadPage /> },
                     { path: "settings", element: <SettingsPage /> },
                 ],

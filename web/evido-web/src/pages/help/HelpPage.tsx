@@ -33,7 +33,7 @@ export default function HelpPage() {
                     <li>Google 계정으로 로그인합니다.</li>
                     <li>문서를 업로드합니다.</li>
                     <li>문서가 자동으로 인덱싱됩니다.</li>
-                    <li>Chat에서 질문을 입력하면 문서를 기반으로 답변합니다.</li>
+                    <li>Conversation에서 질문을 입력하면 문서를 기반으로 답변합니다.</li>
                 </ol>
             </div>
 
@@ -72,7 +72,7 @@ export default function HelpPage() {
                 </div>
 
                 <p className="text-sm text-slate-600 mb-2">
-                    Chat 메뉴에서 질문을 입력하면 다음 과정을 통해 답변이 생성됩니다.
+                    Conversation 메뉴에서 질문을 입력하면 다음 과정을 통해 답변이 생성됩니다.
                 </p>
 
                 <ol className="list-decimal pl-5 text-sm text-slate-600 space-y-2">

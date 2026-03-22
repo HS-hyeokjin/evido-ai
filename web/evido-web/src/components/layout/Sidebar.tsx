@@ -18,7 +18,7 @@ export default function Sidebar() {
     const { workspaceId } = useParams();
 
     const [workspaces, setWorkspaces] = useState<any[]>([]);
-    const [chats, setChats] = useState<any[]>([]);
+    const [conversations, setConversations] = useState<any[]>([]);
     const [wsOpen, setWsOpen] = useState(true);
 
     useEffect(() => {
@@ -26,7 +26,7 @@ export default function Sidebar() {
     }, []);
 
     useEffect(() => {
-        if (workspaceId) fetchChats(workspaceId);
+        if (workspaceId) fetchConversations(workspaceId);
     }, [workspaceId]);
 
     const fetchWorkspaces = async () => {
@@ -34,13 +34,13 @@ export default function Sidebar() {
         setWorkspaces(res.data);
     };
 
-    const fetchChats = async (wsId: string) => {
-        const res = await api.get(`/api/workspaces/${wsId}/chats`);
-        setChats(res.data);
+    const fetchConversations = async (wsId: string) => {
+        const res = await api.get(`/api/workspaces/${wsId}/conversations`);
+        setConversations(res.data);
     };
 
     const handleWorkspaceClick = (wsId: number) => {
-        setChats([]);
+        setConversations([]);
         navigate(`/workspace/${wsId}`);
     };
     return (
@@ -111,14 +111,14 @@ export default function Sidebar() {
                 <div className="mt-6">
 
                     <div className="px-3 text-[11px] text-slate-400 mb-2 font-bold tracking-wider">
-                        CHATS
+                        대화
                     </div>
 
                     <div className="space-y-1">
-                        {chats.map(chat => (
+                        {conversations.map(conversation => (
                             <NavLink
-                                key={chat.id}
-                                to={`/workspace/${workspaceId}/chat/${chat.id}`}
+                                key={conversation.id}
+                                to={`/workspace/${workspaceId}/conversation/${conversation.id}`}
                                 className={({ isActive }) =>
                                     `flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all
                                     ${
@@ -130,7 +130,7 @@ export default function Sidebar() {
                             >
                                 <MessageSquareText size={14}/>
                                 <span className="truncate">
-                                    {chat.title || "새 채팅"}
+                                    {conversation.title || "새 대화"}
                                 </span>
                             </NavLink>
                         ))}

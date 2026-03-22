@@ -41,7 +41,7 @@ export default function DashboardPage() {
                 <Card>
                     <div className="flex items-center justify-between">
                         <div>
-                            <div className="text-xs text-slate-400 font-bold">채팅</div>
+                            <div className="text-xs text-slate-400 font-bold">대화</div>
                             <div className="text-2xl font-black mt-1">42</div>
                         </div>
                         <div className="p-2 bg-purple-50 rounded-xl">
@@ -99,7 +99,7 @@ export default function DashboardPage() {
                             <Sparkles className="h-4 w-4 text-purple-600"/>
                         </div>
                         <div className="text-sm font-bold">
-                            새 채팅 시작
+                            새 대화 시작
                         </div>
                     </button>
 
@@ -133,7 +133,7 @@ export default function DashboardPage() {
 
                     <div className="flex items-center justify-between text-sm">
                         <div className="text-slate-700">
-                            💬 새로운 채팅 생성
+                            💬 새로운 대화 생성
                         </div>
                         <div className="text-xs text-slate-400">10분 전</div>
                     </div>
@@ -151,7 +151,7 @@ export default function DashboardPage() {
             {/* RECENT CHATS */}
             <Card>
                 <div className="font-black text-slate-800">
-                    최근 채팅
+                    최근 대화
                 </div>
 
                 <div className="mt-4 space-y-2">

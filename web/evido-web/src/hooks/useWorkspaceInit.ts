@@ -3,7 +3,7 @@ import api from "../api/client";
 
 export interface WorkspaceInit {
     workspaceId: number;
-    chatId: number;
+    conversationId: number;
 }
 
 export default function useWorkspaceInit() {
