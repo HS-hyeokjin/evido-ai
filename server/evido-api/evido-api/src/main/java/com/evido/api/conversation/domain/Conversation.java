@@ -1,34 +1,34 @@
-package com.evido.api.chat.domain;
+package com.evido.api.conversation.domain;
 
 import lombok.Getter;
 
 import java.time.LocalDateTime;
 
 @Getter
-public class Chat {
+public class Conversation {
 
     private Long id;
     private Long workspaceId;
     private String title;
     private LocalDateTime createdAt;
 
-    private Chat(Long workspaceId, String title) {
+    private Conversation(Long workspaceId, String title) {
         this.workspaceId = workspaceId;
         this.title = title;
         this.createdAt = LocalDateTime.now();
     }
 
-    public Chat(Long id,
-                Long workspaceId,
-                String title,
-                LocalDateTime createdAt) {
+    public Conversation(Long id,
+                        Long workspaceId,
+                        String title,
+                        LocalDateTime createdAt) {
         this.id = id;
         this.workspaceId = workspaceId;
         this.title = title;
         this.createdAt = createdAt;
     }
 
-    public static Chat create(Long workspaceId, String title) {
-        return new Chat(workspaceId, title);
+    public static Conversation create(Long workspaceId, String title) {
+        return new Conversation(workspaceId, title);
     }
 }

@@ -1,4 +1,4 @@
-package com.evido.api.chat.infrastructure.persistence.entity;
+package com.evido.api.conversation.infrastructure.persistence.entity;
 
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -8,9 +8,9 @@ import java.time.LocalDateTime;
 
 @Getter
 @Entity
-@Table(name = "chats")
+@Table(name = "conversations")
 @NoArgsConstructor
-public class ChatEntity {
+public class ConversationEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -22,7 +22,7 @@ public class ChatEntity {
 
     private LocalDateTime createdAt;
 
-    public ChatEntity(Long workspaceId, String title) {
+    public ConversationEntity(Long workspaceId, String title) {
         this.workspaceId = workspaceId;
         this.title = title;
         this.createdAt = LocalDateTime.now();
