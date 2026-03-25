@@ -4,6 +4,7 @@ import com.evido.api.document.application.dto.StoredFile;
 import com.evido.api.document.application.port.out.FileStoragePort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.sync.RequestBody;
@@ -20,6 +21,7 @@ import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
+@Profile("prod")
 public class S3FileStorageAdapter implements FileStoragePort {
 
     private final S3Client s3Client;
