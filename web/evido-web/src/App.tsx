@@ -4,7 +4,7 @@ import AppLayout from "./components/layout/AppLayout";
 import DashboardPage from "./pages/dashboard/DashboardPage";
 import LoginPage from "./pages/auth/LoginPage";
 import DocumentsUploadPage from "./pages/documents/DocumentsUploadPage";
-import AskPage from "./pages/conversation/AskPage";
+import ConversationPage from "./pages/conversation/ConversationPage.tsx";
 import SettingsPage from "./pages/setting/SettingsPage";
 import HelpPage from "./pages/help/HelpPage";
 import ConversationListPage from "./pages/conversation/ConversationListPage";
@@ -23,7 +23,7 @@ const router = createBrowserRouter([
                 path: "/workspace/:workspaceId",
                 children: [
                     { index: true, element: <ConversationListPage /> },
-                    { path: "conversation/:conversationId", element: <AskPage /> },
+                    { path: "conversation/:conversationId", element: <ConversationPage /> },
                     { path: "documents/upload", element: <DocumentsUploadPage /> },
                     { path: "settings", element: <SettingsPage /> },
                 ],
