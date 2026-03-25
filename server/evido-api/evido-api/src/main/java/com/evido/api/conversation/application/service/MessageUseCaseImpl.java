@@ -27,27 +27,23 @@ public class MessageUseCaseImpl implements MessageUseCase {
     @Override
     public Mono<SendMessageResponse> sendMessage(Long conversationId, MessageRequest request) {
 
-        Conversation conversation = conversationRepository.findById(conversationId)
-                .orElseThrow(() -> new RuntimeException("conversation 없음"));
-
-        Long workspaceId = conversation.getWorkspaceId();
-
         Message userMessage = messageService.saveUserMessage(
                 conversationId,
                 request.content()
         );
 
+        Conversation conversation = conversationRepository.findById(conversationId)
+                .orElseThrow(() -> new RuntimeException("conversation 없음"));
+
+        Long workspaceId = conversation.getWorkspaceId();
+
         return qaUseCase.answer(
-                new AskCommand(
-                        workspaceId,
-                        request.content(),
-                        3 // 기본값
-                )
-        ).map(answer -> {
+                new AskCommand(workspaceId, request.content(), 5)
+        ).map(result -> {
 
             Message assistantMessage = messageService.saveAssistantMessage(
                     conversationId,
-                    answer.answer()
+                    result.answer()
             );
 
             return new SendMessageResponse(
@@ -57,6 +53,15 @@ public class MessageUseCaseImpl implements MessageUseCase {
                     )
             );
         });
+    }
+
+    @Override
+    public List<MessageResponse> getMessages(Long conversationId) {
+
+        return messageService.getMessages(conversationId)
+                .stream()
+                .map(this::toResponse)
+                .toList();
     }
 
     private MessageResponse toResponse(Message message) {

@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 @RequiredArgsConstructor
@@ -35,5 +36,11 @@ public class ConversationRepositoryAdapter implements ConversationRepositoryPort
         ConversationEntity saved = conversationJpaRepository.save(entity);
 
         return ConversationMapper.toDomain(saved);
+    }
+
+    @Override
+    public Optional<Conversation> findById(Long id) {
+        return conversationJpaRepository.findById(id)
+                .map(ConversationMapper::toDomain);
     }
 }

@@ -1,6 +1,7 @@
 package com.evido.api.conversation.api;
 
 import com.evido.api.conversation.api.dto.MessageRequest;
+import com.evido.api.conversation.api.dto.MessageResponse;
 import com.evido.api.conversation.api.dto.SendMessageResponse;
 import com.evido.api.conversation.application.port.in.ConversationUseCase;
 import com.evido.api.conversation.application.port.in.MessageUseCase;
@@ -27,6 +28,11 @@ public class ConversationController {
     @PostMapping("/{workspaceId}/conversations")
     public Conversation createConversation(@PathVariable Long workspaceId) {
         return conversationUseCase.createConversation(workspaceId);
+    }
+
+    @GetMapping("/{conversationId}/messages")
+    public List<MessageResponse> getMessages(@PathVariable Long conversationId) {
+        return messageUseCase.getMessages(conversationId);
     }
 
     @PostMapping("/{conversationId}/messages")
