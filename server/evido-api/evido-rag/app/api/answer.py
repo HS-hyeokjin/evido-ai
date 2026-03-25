@@ -28,7 +28,7 @@ def answer(req: AnswerRequest):
 
     if not results:
         return AnswerResponse(queryText=req.queryText,
-                              answer="문서에서 근거를 찾지 못했습니다ㅁ.",
+                              answer="문서에서 근거를 찾지 못했습니다.",
                               evidences=[])
 
     chunk_ids = []
