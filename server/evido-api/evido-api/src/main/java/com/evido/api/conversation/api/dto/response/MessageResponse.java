@@ -1,4 +1,4 @@
-package com.evido.api.conversation.api.dto;
+package com.evido.api.conversation.api.dto.response;
 
 import java.time.LocalDateTime;
 

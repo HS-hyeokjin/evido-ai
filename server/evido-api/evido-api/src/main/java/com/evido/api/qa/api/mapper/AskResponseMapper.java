@@ -1,11 +1,12 @@
-package com.evido.api.qa.api;
+package com.evido.api.qa.api.mapper;
 
 import com.evido.api.qa.api.dto.response.AskResponse;
 import com.evido.api.qa.application.dto.AskResult;
 
 import java.util.List;
 
-final class AskResponseMapper {
+public final class AskResponseMapper {
+
     private AskResponseMapper() {}
 
     static AskResponse from(AskResult result) {

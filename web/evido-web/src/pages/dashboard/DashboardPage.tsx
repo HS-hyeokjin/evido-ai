@@ -12,7 +12,6 @@ export default function DashboardPage() {
     return (
         <div className="space-y-6">
 
-            {/* HEADER */}
             <div>
                 <h1 className="text-2xl font-black text-slate-900">대시보드</h1>
                 <p className="text-sm text-slate-500 mt-1">
@@ -20,7 +19,6 @@ export default function DashboardPage() {
                 </p>
             </div>
 
-            {/* KPI CARDS */}
             <div className="grid gap-4 md:grid-cols-3">
 
                 <Card>
@@ -70,7 +68,6 @@ export default function DashboardPage() {
 
             </div>
 
-            {/* QUICK ACTION */}
             <Card>
                 <div className="flex items-center justify-between">
                     <div>

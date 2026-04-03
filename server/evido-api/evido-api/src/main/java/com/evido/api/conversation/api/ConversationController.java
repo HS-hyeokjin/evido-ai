@@ -1,12 +1,18 @@
 package com.evido.api.conversation.api;
 
-import com.evido.api.conversation.api.dto.MessageRequest;
-import com.evido.api.conversation.api.dto.MessageResponse;
-import com.evido.api.conversation.api.dto.SendMessageResponse;
+import com.evido.api.auth.infrastructure.security.CurrentUserProvider;
+import com.evido.api.conversation.api.dto.response.ConversationResponse;
+import com.evido.api.conversation.application.port.in.command.CreateConversationCommand;
+import com.evido.api.conversation.application.port.in.query.GetConversationsQuery;
+import com.evido.api.conversation.api.dto.request.MessageRequest;
+import com.evido.api.conversation.api.dto.response.MessageResponse;
+import com.evido.api.conversation.api.dto.response.SendMessageResponse;
+import com.evido.api.conversation.api.mapper.ConversationResponseMapper;
 import com.evido.api.conversation.application.port.in.ConversationUseCase;
 import com.evido.api.conversation.application.port.in.MessageUseCase;
 import com.evido.api.conversation.domain.Conversation;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 
@@ -19,15 +25,39 @@ public class ConversationController {
 
     private final ConversationUseCase conversationUseCase;
     private final MessageUseCase messageUseCase;
+    private final CurrentUserProvider currentUserProvider;
 
     @GetMapping("/{workspaceId}/conversations")
-    public List<Conversation> getConversation(@PathVariable Long workspaceId) {
-        return conversationUseCase.getConversation(workspaceId);
+    public List<ConversationResponse> getConversation(@PathVariable Long workspaceId, Authentication authentication) {
+
+        String userId = currentUserProvider.getUserId(authentication);
+
+        var query = new GetConversationsQuery(
+                workspaceId,
+                userId
+        );
+
+        return conversationUseCase.getConversation(query)
+                .stream()
+                .map(ConversationResponseMapper::from)
+                .toList();
     }
 
     @PostMapping("/{workspaceId}/conversations")
-    public Conversation createConversation(@PathVariable Long workspaceId) {
-        return conversationUseCase.createConversation(workspaceId);
+    public ConversationResponse createConversation(
+            @PathVariable Long workspaceId,
+            Authentication authentication
+    ) {
+        String userId = currentUserProvider.getUserId(authentication);
+
+        var command = new CreateConversationCommand(
+                workspaceId,
+                userId
+        );
+
+        return ConversationResponseMapper.from(
+                conversationUseCase.createConversation(command)
+        );
     }
 
     @GetMapping("/{conversationId}/messages")

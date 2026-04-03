@@ -1,9 +1,8 @@
 package com.evido.api.conversation.application.service;
 
-import com.evido.api.conversation.api.dto.MessageRequest;
-import com.evido.api.conversation.api.dto.MessageResponse;
-import com.evido.api.conversation.api.dto.SendMessageResponse;
-import com.evido.api.conversation.application.port.in.ConversationUseCase;
+import com.evido.api.conversation.api.dto.request.MessageRequest;
+import com.evido.api.conversation.api.dto.response.MessageResponse;
+import com.evido.api.conversation.api.dto.response.SendMessageResponse;
 import com.evido.api.conversation.application.port.in.MessageUseCase;
 import com.evido.api.conversation.application.port.out.ConversationRepositoryPort;
 import com.evido.api.conversation.domain.Conversation;
