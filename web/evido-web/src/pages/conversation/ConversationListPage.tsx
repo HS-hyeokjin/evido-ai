@@ -37,7 +37,7 @@ export default function ConversationListPage() {
         setLoading(true);
         try {
             const [conversationRes, docRes] = await Promise.all([
-                api.get(`/api/workspaces/${workspaceId}/conversations`),
+                api.get(`/api/conversations/${workspaceId}/conversations`),
                 api.get(`/api/documents?page=0&size=5`)
             ]);
 
