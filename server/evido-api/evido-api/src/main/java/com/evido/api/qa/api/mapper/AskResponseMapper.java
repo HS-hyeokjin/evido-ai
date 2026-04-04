@@ -9,7 +9,7 @@ public final class AskResponseMapper {
 
     private AskResponseMapper() {}
 
-    static AskResponse from(AskResult result) {
+    public static AskResponse from(AskResult result) {
         List<AskResponse.Evidence> evs = result.evidences() == null ? List.of() :
                 result.evidences().stream()
                         .map(e -> new AskResponse.Evidence(
