@@ -60,7 +60,7 @@ public class GlobalExceptionHandler {
         log.warn("[업로드 파일 용량 초과] path={}, message={}", request.getRequestURI(), ex.getMessage());
 
         ApiErrorResponse response = ApiErrorResponse.builder()
-                .status(HttpStatus.PAYLOAD_TOO_LARGE.value()) // 413
+                .status(HttpStatus.PAYLOAD_TOO_LARGE.value())
                 .message("업로드 가능한 최대 용량을 초과했습니다.")
                 .path(request.getRequestURI())
                 .timestamp(LocalDateTime.now())
