@@ -14,7 +14,7 @@ public class RagProcessorClient {
 
     private final WebClient ragProcessorWebClient;
 
-    @Value("${rag.processor.timeout-seconds:5}")
+    @Value("${rag.processor.timeout-seconds:20}")
     private long timeoutSeconds;
 
     public Mono<Void> process(Long documentId, Long versionId) {

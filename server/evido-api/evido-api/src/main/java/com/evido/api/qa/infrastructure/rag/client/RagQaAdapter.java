@@ -19,7 +19,7 @@ public class RagQaAdapter implements RagPort {
 
     private final WebClient ragApiWebClient;
 
-    @Value("${rag.timeout-seconds:20}")
+    @Value("${rag.timeout-seconds:40}")
     private long timeoutSeconds;
 
     @Override
