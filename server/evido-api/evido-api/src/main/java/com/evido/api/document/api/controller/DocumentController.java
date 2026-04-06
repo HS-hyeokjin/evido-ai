@@ -1,4 +1,4 @@
-package com.evido.api.document.api;
+package com.evido.api.document.api.controller;
 
 import com.evido.api.document.api.dto.request.*;
 import com.evido.api.document.api.dto.response.*;
@@ -7,10 +7,11 @@ import com.evido.api.document.application.dto.*;
 import com.evido.api.document.application.port.in.DocumentUseCase;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
+
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 
 @RestController
@@ -30,8 +31,10 @@ public class DocumentController {
     }
 
     @GetMapping(value = "/{documentId}/content", produces = MediaType.TEXT_PLAIN_VALUE)
-    public Mono<ResponseEntity<String>> getTextContent(@PathVariable Long documentId, @ModelAttribute DocumentContentRequest req) {
-
+    public Mono<ResponseEntity<String>> getTextContent(
+            @PathVariable Long documentId,
+            @ModelAttribute DocumentContentRequest req
+    ) {
         var cmd = new GetDocumentFileQuery(
                 workspaceId(),
                 userId(),
@@ -39,14 +42,55 @@ public class DocumentController {
                 req.versionId()
         );
 
-        return documentUseCase.getDocumentTextContent(cmd).map(this::textResponse);
+        return documentUseCase.getDocumentTextContent(cmd)
+                .map(this::textResponse);
     }
 
+    /**
+     * 뷰어/새탭 열기용 엔드포인트
+     * - S3: presigned url 로 redirect
+     * - LOCAL: 파일 자체를 바로 응답
+     */
+    @GetMapping("/{documentId}/file")
+    public Mono<ResponseEntity<?>> getFile(
+            @PathVariable Long documentId,
+            @ModelAttribute DownloadDocumentRequest req
+    ) {
+        var query = new GetDocumentFileQuery(
+                workspaceId(),
+                userId(),
+                documentId,
+                req.versionId()
+        );
+
+        return documentUseCase.getDocumentFileMeta(query)
+                .flatMap(meta -> {
+                    if (meta.inline()) {
+                        return documentUseCase.getDocumentInlineResource(query)
+                                .map(resource -> ResponseEntity.ok()
+                                        .contentType(MediaType.parseMediaType(meta.contentType()))
+                                        .header(
+                                                HttpHeaders.CONTENT_DISPOSITION,
+                                                "inline; filename=\"" + meta.filename() + "\""
+                                        )
+                                        .body(resource));
+                    }
+
+                    return documentUseCase.getDocumentDownloadUrl(query)
+                            .map(url -> ResponseEntity.status(HttpStatus.FOUND)
+                                    .location(URI.create(url))
+                                    .build());
+                });
+    }
+
+    /**
+     * presigned url 자체가 필요한 경우
+     */
     @GetMapping("/{documentId}/download")
     public Mono<ResponseEntity<String>> getDownloadUrl(
             @PathVariable Long documentId,
-            @ModelAttribute DownloadDocumentRequest req) {
-
+            @ModelAttribute DownloadDocumentRequest req
+    ) {
         var query = new GetDocumentFileQuery(
                 workspaceId(),
                 userId(),
@@ -60,7 +104,6 @@ public class DocumentController {
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public Mono<DocumentCreateResponse> upload(@ModelAttribute UploadDocumentRequest req) {
-
         var cmd = new UploadNewDocumentCommand(
                 workspaceId(),
                 userId(),
@@ -68,12 +111,15 @@ public class DocumentController {
                 req.file()
         );
 
-        return documentUseCase.uploadNewDocument(cmd).map(DocumentResponseMapper::from);
+        return documentUseCase.uploadNewDocument(cmd)
+                .map(DocumentResponseMapper::from);
     }
 
     @PostMapping(value = "/{documentId}/versions", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public Mono<DocumentCreateResponse> uploadVersion(@PathVariable Long documentId, @ModelAttribute UploadDocumentVersionRequest req) {
-
+    public Mono<DocumentCreateResponse> uploadVersion(
+            @PathVariable Long documentId,
+            @ModelAttribute UploadDocumentVersionRequest req
+    ) {
         var cmd = new UploadNewVersionCommand(
                 workspaceId(),
                 userId(),
@@ -81,12 +127,12 @@ public class DocumentController {
                 req.file()
         );
 
-        return documentUseCase.uploadNewVersion(cmd).map(DocumentResponseMapper::from);
+        return documentUseCase.uploadNewVersion(cmd)
+                .map(DocumentResponseMapper::from);
     }
 
     @PostMapping(value = "/bulk", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public Mono<BulkUploadResponse> uploadBulk(@ModelAttribute BulkUploadRequest req) {
-
         var cmd = new BulkUploadCommand(
                 workspaceId(),
                 userId(),
@@ -94,12 +140,12 @@ public class DocumentController {
                 req.files()
         );
 
-        return documentUseCase.uploadBulk(cmd).map(DocumentResponseMapper::from);
+        return documentUseCase.uploadBulk(cmd)
+                .map(DocumentResponseMapper::from);
     }
 
     @GetMapping
     public Mono<PageResponse<DocumentListItemResponse>> list(@ModelAttribute ListDocumentsRequest req) {
-
         Sort sort = parseSort(req.sortOrDefault());
 
         var cmd = new ListDocumentsQuery(
@@ -111,12 +157,12 @@ public class DocumentController {
                 sort
         );
 
-        return documentUseCase.listDocuments(cmd).map(DocumentResponseMapper::from);
+        return documentUseCase.listDocuments(cmd)
+                .map(DocumentResponseMapper::from);
     }
 
     @DeleteMapping("/{documentId}")
     public Mono<Void> delete(@PathVariable Long documentId) {
-
         var cmd = new DeleteDocumentCommand(
                 workspaceId(),
                 userId(),
@@ -133,7 +179,6 @@ public class DocumentController {
     }
 
     private Sort parseSort(String sort) {
-
         if (sort == null || sort.isBlank()) {
             return Sort.by(Sort.Direction.DESC, "createdAt");
         }
@@ -142,7 +187,9 @@ public class DocumentController {
         String property = parts[0].trim();
 
         Sort.Direction direction =
-                (parts.length >= 2 && "asc".equalsIgnoreCase(parts[1].trim())) ? Sort.Direction.ASC : Sort.Direction.DESC;
+                (parts.length >= 2 && "asc".equalsIgnoreCase(parts[1].trim()))
+                        ? Sort.Direction.ASC
+                        : Sort.Direction.DESC;
 
         return Sort.by(direction, property);
     }

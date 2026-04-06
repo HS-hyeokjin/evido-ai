@@ -1,4 +1,4 @@
-package com.evido.api.workspace.api;
+package com.evido.api.workspace.api.controller;
 
 import com.evido.api.auth.infrastructure.security.CurrentUserProvider;
 import com.evido.api.workspace.api.dto.request.WorkspaceCreateRequest;

@@ -1,4 +1,4 @@
-package com.evido.api.workspace.api;
+package com.evido.api.workspace.api.controller;
 
 import com.evido.api.workspace.api.dto.response.WorkspaceInitResponse;
 import com.evido.api.workspace.application.dto.WorkspaceInitResult;

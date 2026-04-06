@@ -1,4 +1,4 @@
-package com.evido.api.conversation.api;
+package com.evido.api.conversation.api.controller;
 
 import com.evido.api.auth.infrastructure.security.CurrentUserProvider;
 import com.evido.api.conversation.api.dto.response.ConversationResponse;
@@ -10,7 +10,6 @@ import com.evido.api.conversation.api.dto.response.SendMessageResponse;
 import com.evido.api.conversation.api.mapper.ConversationResponseMapper;
 import com.evido.api.conversation.application.port.in.ConversationUseCase;
 import com.evido.api.conversation.application.port.in.MessageUseCase;
-import com.evido.api.conversation.domain.Conversation;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -32,10 +31,7 @@ public class ConversationController {
 
         String userId = currentUserProvider.getUserId(authentication);
 
-        var query = new GetConversationsQuery(
-                workspaceId,
-                userId
-        );
+        var query = new GetConversationsQuery(workspaceId, userId);
 
         return conversationUseCase.getConversation(query)
                 .stream()
