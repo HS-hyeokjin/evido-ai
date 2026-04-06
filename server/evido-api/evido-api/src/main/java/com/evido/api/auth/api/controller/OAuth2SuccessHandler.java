@@ -1,4 +1,4 @@
-package com.evido.api.auth.api;
+package com.evido.api.auth.api.controller;
 
 import com.evido.api.auth.application.port.in.IssueTokenUseCase;
 import com.evido.api.auth.application.dto.TokenPair;

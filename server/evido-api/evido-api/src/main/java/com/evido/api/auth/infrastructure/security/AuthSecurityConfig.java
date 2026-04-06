@@ -1,6 +1,6 @@
 package com.evido.api.auth.infrastructure.security;
 
-import com.evido.api.auth.api.OAuth2SuccessHandler;
+import com.evido.api.auth.api.controller.OAuth2SuccessHandler;
 import com.evido.api.auth.application.port.in.IssueTokenUseCase;
 import com.evido.api.auth.application.port.out.TokenProviderPort;
 import org.springframework.context.annotation.Bean;
