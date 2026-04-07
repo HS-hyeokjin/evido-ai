@@ -2,14 +2,14 @@ import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import useAuth from "../../hooks/useAuth";
 import useWorkspaceInit from "../../hooks/useWorkspaceInit";
+import AppLoadingScreen from "./AppLoadingScreen";
 
 export default function AppLayout() {
-
     const { loading: authLoading } = useAuth();
     const { loading: workspaceLoading } = useWorkspaceInit();
 
     if (authLoading || workspaceLoading) {
-        return <div>로딩중...</div>;
+        return <AppLoadingScreen />;
     }
 
     return (
