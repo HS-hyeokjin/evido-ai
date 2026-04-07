@@ -1,6 +1,6 @@
-package com.evido.api.document.application.dto;
+package com.evido.api.document.application.port.in.query;
 
-public record GetDocumentTextContentQuery(
+public record GetDocumentFileQuery(
         Long workspaceId,
         Long userId,
         Long documentId,

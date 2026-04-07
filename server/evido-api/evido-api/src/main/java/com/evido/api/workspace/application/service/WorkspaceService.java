@@ -1,13 +1,14 @@
 package com.evido.api.workspace.application.service;
 
-import com.evido.api.workspace.application.dto.*;
+import com.evido.api.workspace.application.dto.WorkspaceResult;
 import com.evido.api.workspace.application.port.in.WorkspaceUseCase;
+import com.evido.api.workspace.application.port.in.command.WorkspaceCreateCommand;
 import com.evido.api.workspace.application.port.out.WorkspaceRepositoryPort;
 import com.evido.api.workspace.domain.Workspace;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-
 import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class WorkspaceService implements WorkspaceUseCase {

@@ -1,10 +1,10 @@
-package com.evido.api.document.application.dto;
+package com.evido.api.document.application.port.in.command;
 
 import org.springframework.web.multipart.MultipartFile;
 
-public record UploadNewDocumentCommand(
+public record UploadNewVersionCommand(
         Long workspaceId,
         Long userId,
-        String title,
+        Long documentId,
         MultipartFile file
 ) {}

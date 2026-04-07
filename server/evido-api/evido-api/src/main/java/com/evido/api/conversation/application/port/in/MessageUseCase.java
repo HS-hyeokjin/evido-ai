@@ -1,15 +1,17 @@
 package com.evido.api.conversation.application.port.in;
 
-import com.evido.api.conversation.api.dto.request.MessageRequest;
-import com.evido.api.conversation.api.dto.response.MessageResponse;
-import com.evido.api.conversation.api.dto.response.SendMessageResponse;
+import com.evido.api.conversation.application.dto.MessageResult;
+import com.evido.api.conversation.application.dto.SendMessageResult;
+import com.evido.api.conversation.application.port.in.command.SendMessageCommand;
+import com.evido.api.conversation.application.port.in.query.GetMessagesQuery;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
 
 public interface MessageUseCase {
 
-    Mono<SendMessageResponse> sendMessage(Long conversationId, MessageRequest request);
+    Mono<SendMessageResult> sendMessage(SendMessageCommand command);
 
-    List<MessageResponse> getMessages(Long conversationId);
+    List<MessageResult> getMessages(GetMessagesQuery query);
+
 }

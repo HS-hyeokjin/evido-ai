@@ -1,6 +1,6 @@
 package com.evido.api.qa.infrastructure.rag.dto;
 
-import com.evido.api.qa.application.dto.AskCommand;
+import com.evido.api.qa.application.port.in.command.AskCommand;
 
 public record RagAnswerRequest(
         Long workspaceId,

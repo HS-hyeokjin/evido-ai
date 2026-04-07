@@ -1,6 +1,7 @@
 package com.evido.api.workspace.api.controller;
 
 import com.evido.api.workspace.api.dto.response.WorkspaceInitResponse;
+import com.evido.api.workspace.api.mapper.WorkspaceInitResponseMapper;
 import com.evido.api.workspace.application.dto.WorkspaceInitResult;
 import com.evido.api.workspace.application.port.in.WorkspaceInitUseCase;
 import com.evido.api.auth.infrastructure.security.CurrentUserProvider;
@@ -21,15 +22,8 @@ public class WorkspaceInitController {
 
         String userId = currentUserProvider.getUserId(authentication);
 
-        if (userId == null) {
-            throw new RuntimeException("인증 필요");
-        }
-
         WorkspaceInitResult result = workspaceInitUseCase.init(userId);
 
-        return new WorkspaceInitResponse(
-                result.workspaceId(),
-                result.conversationId()
-        );
+        return WorkspaceInitResponseMapper.from(result);
     }
 }

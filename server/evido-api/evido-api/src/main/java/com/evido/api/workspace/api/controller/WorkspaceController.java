@@ -6,7 +6,7 @@ import com.evido.api.workspace.api.dto.response.WorkspaceResponse;
 import com.evido.api.workspace.api.mapper.WorkspaceResponseMapper;
 import com.evido.api.workspace.application.dto.WorkspaceResult;
 import com.evido.api.workspace.application.port.in.WorkspaceUseCase;
-import com.evido.api.workspace.application.dto.WorkspaceCreateCommand;
+import com.evido.api.workspace.application.port.in.command.WorkspaceCreateCommand;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -23,16 +23,9 @@ public class WorkspaceController {
 
 
     @PostMapping
-    public WorkspaceResponse create(
-            @RequestBody WorkspaceCreateRequest request,
-            Authentication authentication
-    ) {
+    public WorkspaceResponse create(@RequestBody WorkspaceCreateRequest request, Authentication authentication ) {
 
         String userId = currentUserProvider.getUserId(authentication);
-
-        if (userId == null) {
-            throw new RuntimeException("인증 필요");
-        }
 
         String name = (request.name() == null || request.name().isBlank())
                 ? "새 워크스페이스"
@@ -50,7 +43,10 @@ public class WorkspaceController {
 
     @GetMapping
     public List<WorkspaceResponse> list(Authentication authentication) {
-        return workspaceUseCase.findAll(currentUserProvider.getUserId(authentication))
+
+        String userId = currentUserProvider.getUserId(authentication);
+
+        return workspaceUseCase.findAll(userId)
                 .stream()
                 .map(WorkspaceResponseMapper::from)
                 .toList();

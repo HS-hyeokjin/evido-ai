@@ -1,4 +1,4 @@
-package com.evido.api.document.repository;
+package com.evido.api.document.infrastructure.repository;
 
 import com.evido.api.document.entity.FileObject;
 import org.springframework.data.jpa.repository.JpaRepository;

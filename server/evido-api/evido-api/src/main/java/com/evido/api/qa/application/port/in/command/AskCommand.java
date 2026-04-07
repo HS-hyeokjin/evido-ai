@@ -1,4 +1,4 @@
-package com.evido.api.qa.application.dto;
+package com.evido.api.qa.application.port.in.command;
 
 import com.evido.api.qa.api.dto.request.AskRequest;
 import jakarta.validation.constraints.NotBlank;

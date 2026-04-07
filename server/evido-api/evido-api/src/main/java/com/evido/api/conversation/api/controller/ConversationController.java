@@ -2,7 +2,10 @@ package com.evido.api.conversation.api.controller;
 
 import com.evido.api.auth.infrastructure.security.CurrentUserProvider;
 import com.evido.api.conversation.api.dto.response.ConversationResponse;
+import com.evido.api.conversation.api.mapper.MessageResponseMapper;
+import com.evido.api.conversation.api.mapper.SendMessageResponseMapper;
 import com.evido.api.conversation.application.port.in.command.CreateConversationCommand;
+import com.evido.api.conversation.application.port.in.command.SendMessageCommand;
 import com.evido.api.conversation.application.port.in.query.GetConversationsQuery;
 import com.evido.api.conversation.api.dto.request.MessageRequest;
 import com.evido.api.conversation.api.dto.response.MessageResponse;
@@ -10,6 +13,7 @@ import com.evido.api.conversation.api.dto.response.SendMessageResponse;
 import com.evido.api.conversation.api.mapper.ConversationResponseMapper;
 import com.evido.api.conversation.application.port.in.ConversationUseCase;
 import com.evido.api.conversation.application.port.in.MessageUseCase;
+import com.evido.api.conversation.application.port.in.query.GetMessagesQuery;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -40,10 +44,8 @@ public class ConversationController {
     }
 
     @PostMapping("/{workspaceId}/conversations")
-    public ConversationResponse createConversation(
-            @PathVariable Long workspaceId,
-            Authentication authentication
-    ) {
+    public ConversationResponse createConversation(@PathVariable Long workspaceId, Authentication authentication) {
+
         String userId = currentUserProvider.getUserId(authentication);
 
         var command = new CreateConversationCommand(
@@ -57,15 +59,35 @@ public class ConversationController {
     }
 
     @GetMapping("/{conversationId}/messages")
-    public List<MessageResponse> getMessages(@PathVariable Long conversationId) {
-        return messageUseCase.getMessages(conversationId);
+    public List<MessageResponse> getMessages(
+            @PathVariable Long conversationId,
+            Authentication authentication
+    ) {
+        String userId = currentUserProvider.getUserId(authentication);
+
+        var query = new GetMessagesQuery(conversationId, userId);
+
+        return messageUseCase.getMessages(query)
+                .stream()
+                .map(MessageResponseMapper::from)
+                .toList();
     }
 
     @PostMapping("/{conversationId}/messages")
     public Mono<SendMessageResponse> sendMessage(
             @PathVariable Long conversationId,
-            @RequestBody MessageRequest request
+            @RequestBody MessageRequest request,
+            Authentication authentication
     ) {
-        return messageUseCase.sendMessage(conversationId, request);
+        String userId = currentUserProvider.getUserId(authentication);
+
+        var command = new SendMessageCommand(
+                conversationId,
+                userId,
+                request.content()
+        );
+
+        return messageUseCase.sendMessage(command)
+                .map(SendMessageResponseMapper::from);
     }
 }

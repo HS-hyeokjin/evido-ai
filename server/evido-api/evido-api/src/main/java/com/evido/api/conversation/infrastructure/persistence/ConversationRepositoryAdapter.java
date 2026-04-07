@@ -18,7 +18,6 @@ public class ConversationRepositoryAdapter implements ConversationRepositoryPort
 
     @Override
     public List<Conversation> findByWorkspaceId(Long workspaceId) {
-
         return conversationJpaRepository.findByWorkspaceId(workspaceId)
                 .stream()
                 .map(ConversationMapper::toDomain)
@@ -27,14 +26,12 @@ public class ConversationRepositoryAdapter implements ConversationRepositoryPort
 
     @Override
     public Conversation createDefaultConversation(Long workspaceId) {
-
         ConversationEntity entity = new ConversationEntity(
                 workspaceId,
                 "제목 없음"
         );
 
         ConversationEntity saved = conversationJpaRepository.save(entity);
-
         return ConversationMapper.toDomain(saved);
     }
 

@@ -1,15 +1,17 @@
 package com.evido.api.conversation.application.service;
 
-import com.evido.api.conversation.api.dto.request.MessageRequest;
-import com.evido.api.conversation.api.dto.response.MessageResponse;
-import com.evido.api.conversation.api.dto.response.SendMessageResponse;
+import com.evido.api.conversation.application.dto.MessageResult;
+import com.evido.api.conversation.application.dto.SendMessageResult;
 import com.evido.api.conversation.application.port.in.MessageUseCase;
+import com.evido.api.conversation.application.port.in.command.SendMessageCommand;
+import com.evido.api.conversation.application.port.in.query.GetMessagesQuery;
 import com.evido.api.conversation.application.port.out.ConversationRepositoryPort;
 import com.evido.api.conversation.application.port.out.MessageRepositoryPort;
+import com.evido.api.conversation.application.port.out.WorkspaceAccessPort;
 import com.evido.api.conversation.domain.Conversation;
 import com.evido.api.conversation.domain.Message;
-import com.evido.api.qa.application.QaUseCase;
-import com.evido.api.qa.application.dto.AskCommand;
+import com.evido.api.qa.application.port.in.QaUseCase;
+import com.evido.api.qa.application.port.in.command.AskCommand;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
@@ -22,40 +24,59 @@ public class MessageService implements MessageUseCase {
 
     private final MessageRepositoryPort messageRepositoryPort;
     private final ConversationRepositoryPort conversationRepositoryPort;
+    private final WorkspaceAccessPort workspaceAccessPort;
     private final QaUseCase qaUseCase;
 
     @Override
-    public Mono<SendMessageResponse> sendMessage(Long conversationId, MessageRequest request) {
+    public Mono<SendMessageResult> sendMessage(SendMessageCommand command) {
 
-        Message userMessage = saveUserMessage(conversationId, request.content());
+        Conversation conversation = getConversation(command.conversationId());
+        validateAccess(conversation.getWorkspaceId(), command.userId());
 
-        Conversation conversation = conversationRepositoryPort.findById(conversationId)
-                .orElseThrow(() -> new RuntimeException("conversation 없음"));
+        Message userMessage = saveUserMessage(
+                command.conversationId(),
+                command.content()
+        );
 
-        Long workspaceId = conversation.getWorkspaceId();
+        return qaUseCase.answer(
+                new AskCommand(conversation.getWorkspaceId(), command.content(), 5)
+        ).map(result -> {
 
-        return qaUseCase.answer(new AskCommand(workspaceId, request.content(), 5))
-                .map(result -> {
-                    Message assistantMessage = saveAssistantMessage(
-                            conversationId,
-                            result.answer()
-                    );
+            Message assistantMessage = saveAssistantMessage(
+                    command.conversationId(),
+                    result.answer()
+            );
 
-                    return new SendMessageResponse(
-                            List.of(
-                                    toResponse(userMessage),
-                                    toResponse(assistantMessage)
-                            )
-                    );
-                });
+            return new SendMessageResult(
+                    List.of(
+                            toResult(userMessage),
+                            toResult(assistantMessage)
+                    )
+            );
+        });
     }
 
     @Override
-    public List<MessageResponse> getMessages(Long conversationId) {
-        return messageRepositoryPort.findByConversationId(conversationId)
+    public List<MessageResult> getMessages(GetMessagesQuery query) {
+
+        Conversation conversation = getConversation(query.conversationId());
+        validateAccess(conversation.getWorkspaceId(), query.userId());
+
+        return messageRepositoryPort.findByConversationId(query.conversationId())
                 .stream()
-                .map(this::toResponse)
+                .map(this::toResult)
                 .toList();
+    }
+
+    private Conversation getConversation(Long conversationId) {
+        return conversationRepositoryPort.findById(conversationId)
+                .orElseThrow(() -> new RuntimeException("conversation 이 없습니다."));
+    }
+
+    private void validateAccess(Long workspaceId, String userId) {
+        if (!workspaceAccessPort.hasAccess(workspaceId, userId)) {
+            throw new RuntimeException("워크스페이스 접근 권한이 없습니다.");
+        }
     }
 
     private Message saveUserMessage(Long conversationId, String content) {
@@ -70,8 +91,8 @@ public class MessageService implements MessageUseCase {
         );
     }
 
-    private MessageResponse toResponse(Message message) {
-        return new MessageResponse(
+    private MessageResult toResult(Message message) {
+        return new MessageResult(
                 message.getId(),
                 message.getRole().name().toLowerCase(),
                 message.getContent(),

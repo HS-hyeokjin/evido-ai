@@ -1,6 +1,12 @@
 package com.evido.api.document.application.port.in;
 
 import com.evido.api.document.application.dto.*;
+import com.evido.api.document.application.port.in.command.BulkUploadCommand;
+import com.evido.api.document.application.port.in.command.DeleteDocumentCommand;
+import com.evido.api.document.application.port.in.command.UploadNewDocumentCommand;
+import com.evido.api.document.application.port.in.command.UploadNewVersionCommand;
+import com.evido.api.document.application.port.in.query.GetDocumentFileQuery;
+import com.evido.api.document.application.port.in.query.ListDocumentsQuery;
 import reactor.core.publisher.Mono;
 import org.springframework.core.io.Resource;
 
@@ -21,4 +27,6 @@ public interface DocumentUseCase {
     Mono<DocumentFileMetaResult> getDocumentFileMeta(GetDocumentFileQuery query);
 
     Mono<String> getDocumentTextContent(GetDocumentFileQuery query);
+
+    Mono<Resource> getDocumentInlineResource(GetDocumentFileQuery q);
 }

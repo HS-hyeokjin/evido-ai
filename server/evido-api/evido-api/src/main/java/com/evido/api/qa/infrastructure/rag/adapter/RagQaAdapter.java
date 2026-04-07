@@ -1,6 +1,6 @@
-package com.evido.api.qa.infrastructure.rag.client;
+package com.evido.api.qa.infrastructure.rag.adapter;
 
-import com.evido.api.qa.application.dto.AskCommand;
+import com.evido.api.qa.application.port.in.command.AskCommand;
 import com.evido.api.qa.infrastructure.rag.dto.RagAnswerRequest;
 import com.evido.api.qa.infrastructure.rag.dto.RagAnswerResponse;
 import com.evido.api.qa.infrastructure.rag.port.RagPort;

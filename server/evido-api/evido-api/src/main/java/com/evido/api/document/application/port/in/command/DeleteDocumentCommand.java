@@ -1,4 +1,4 @@
-package com.evido.api.document.application.dto;
+package com.evido.api.document.application.port.in.command;
 
 public record DeleteDocumentCommand(
         Long workspaceId,

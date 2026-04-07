@@ -1,6 +1,6 @@
-package com.evido.api.qa.application;
+package com.evido.api.qa.application.port.in;
 
-import com.evido.api.qa.application.dto.AskCommand;
+import com.evido.api.qa.application.port.in.command.AskCommand;
 import com.evido.api.qa.application.dto.AskResult;
 import reactor.core.publisher.Mono;
 

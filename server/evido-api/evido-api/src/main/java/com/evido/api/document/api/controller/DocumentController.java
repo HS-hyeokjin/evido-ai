@@ -3,8 +3,13 @@ package com.evido.api.document.api.controller;
 import com.evido.api.document.api.dto.request.*;
 import com.evido.api.document.api.dto.response.*;
 import com.evido.api.document.api.mapper.DocumentResponseMapper;
-import com.evido.api.document.application.dto.*;
 import com.evido.api.document.application.port.in.DocumentUseCase;
+import com.evido.api.document.application.port.in.command.BulkUploadCommand;
+import com.evido.api.document.application.port.in.command.DeleteDocumentCommand;
+import com.evido.api.document.application.port.in.command.UploadNewDocumentCommand;
+import com.evido.api.document.application.port.in.command.UploadNewVersionCommand;
+import com.evido.api.document.application.port.in.query.GetDocumentFileQuery;
+import com.evido.api.document.application.port.in.query.ListDocumentsQuery;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.*;
@@ -46,11 +51,6 @@ public class DocumentController {
                 .map(this::textResponse);
     }
 
-    /**
-     * 뷰어/새탭 열기용 엔드포인트
-     * - S3: presigned url 로 redirect
-     * - LOCAL: 파일 자체를 바로 응답
-     */
     @GetMapping("/{documentId}/file")
     public Mono<ResponseEntity<?>> getFile(
             @PathVariable Long documentId,

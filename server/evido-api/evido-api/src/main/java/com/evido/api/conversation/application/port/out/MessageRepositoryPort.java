@@ -9,4 +9,5 @@ public interface MessageRepositoryPort {
     Message save(Message message);
 
     List<Message> findByConversationId(Long conversationId);
+
 }

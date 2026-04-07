@@ -1,4 +1,4 @@
-package com.evido.api.document.application.dto;
+package com.evido.api.document.application.port.in.query;
 
 import org.springframework.data.domain.Sort;
 

@@ -2,11 +2,20 @@ package com.evido.api.document.application.service;
 
 import com.evido.api.document.application.dto.*;
 import com.evido.api.document.application.port.in.DocumentUseCase;
+import com.evido.api.document.application.port.in.command.BulkUploadCommand;
+import com.evido.api.document.application.port.in.command.DeleteDocumentCommand;
+import com.evido.api.document.application.port.in.command.UploadNewDocumentCommand;
+import com.evido.api.document.application.port.in.command.UploadNewVersionCommand;
+import com.evido.api.document.application.port.in.query.GetDocumentFileQuery;
+import com.evido.api.document.application.port.in.query.ListDocumentsQuery;
 import com.evido.api.document.application.port.out.DocumentProcessPort;
 import com.evido.api.document.application.port.out.FileStoragePort;
 import com.evido.api.document.application.port.out.VectorIndexPort;
 import com.evido.api.document.entity.*;
-import com.evido.api.document.repository.*;
+import com.evido.api.document.infrastructure.repository.DocumentChunkRepository;
+import com.evido.api.document.infrastructure.repository.DocumentRepository;
+import com.evido.api.document.infrastructure.repository.DocumentVersionRepository;
+import com.evido.api.document.infrastructure.repository.FileObjectRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.UrlResource;
 import org.springframework.data.domain.PageRequest;
@@ -18,8 +27,6 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 import reactor.core.publisher.Mono;
 import org.springframework.core.io.Resource;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.ResponseEntity;
 
 import java.net.MalformedURLException;
 import java.nio.charset.StandardCharsets;
@@ -325,18 +332,74 @@ public class DocumentService implements DocumentUseCase {
 
     @Override
     @Transactional(readOnly = true)
-    public Mono<String> getDocumentDownloadUrl(GetDocumentFileQuery q) {
+    public Mono<Resource> getDocumentInlineResource(GetDocumentFileQuery q) {
+        FileObject fo = resolveFileObject(q);
 
+        if (!StringUtils.hasText(fo.getStorageKey())) {
+            throw new IllegalArgumentException("storageKey가 비어있습니다.");
+        }
+
+        try {
+            if ("LOCAL".equalsIgnoreCase(fo.getStorageProvider())) {
+                Path path = Paths.get(fo.getStorageKey());
+
+                if (!Files.exists(path)) {
+                    throw new IllegalArgumentException("파일이 존재하지 않습니다.");
+                }
+
+                Resource resource = new UrlResource(path.toUri());
+
+                if (!resource.exists() || !resource.isReadable()) {
+                    throw new IllegalStateException("파일을 읽을 수 없습니다.");
+                }
+
+                return Mono.just(resource);
+            }
+
+            if ("S3".equalsIgnoreCase(fo.getStorageProvider())) {
+                String url = fileStoragePort.generatePresignedUrl(
+                        fo.getStorageKey(),
+                        300
+                );
+
+                if (!StringUtils.hasText(url)) {
+                    throw new IllegalStateException("다운로드 URL 생성 실패");
+                }
+
+                Resource resource = new UrlResource(url);
+
+                if (!resource.exists()) {
+                    // URL resource는 exists가 false일 수도 있으니 readable 체크 없이 반환
+                    return Mono.just(resource);
+                }
+
+                return Mono.just(resource);
+            }
+
+            throw new IllegalStateException("지원하지 않는 저장소: " + fo.getStorageProvider());
+
+        } catch (MalformedURLException e) {
+            throw new IllegalStateException("파일 리소스 생성 실패", e);
+        }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Mono<String> getDocumentDownloadUrl(GetDocumentFileQuery q) {
         FileObject fo = resolveFileObject(q);
 
         if (!"S3".equalsIgnoreCase(fo.getStorageProvider())) {
-            throw new IllegalStateException("지원하지 않는 저장소");
+            throw new IllegalStateException("download url은 S3 저장소에서만 지원합니다.");
         }
 
         String url = fileStoragePort.generatePresignedUrl(
                 fo.getStorageKey(),
                 300
         );
+
+        if (!StringUtils.hasText(url)) {
+            throw new IllegalStateException("다운로드 URL 생성 실패");
+        }
 
         return Mono.just(url);
     }
