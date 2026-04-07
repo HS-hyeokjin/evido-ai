@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Card from "../../components/common/Card";
 import api from "../../api/client";
 import {
@@ -16,6 +16,8 @@ import {
     ExternalLink,
     Search,
     FolderOpen,
+    ChevronDown,
+    ChevronRight,
 } from "lucide-react";
 
 type Props = {
@@ -41,27 +43,38 @@ function formatDate(iso?: string | null) {
     if (!iso) return "-";
     try {
         const d = new Date(iso);
-        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(
-            2,
-            "0"
-        )} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+            d.getDate()
+        ).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(
+            d.getMinutes()
+        ).padStart(2, "0")}`;
     } catch {
         return iso;
     }
 }
 
+function buildApiUrl(path: string) {
+    const base = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
+    return `${base}${path}`;
+}
 
 function makeFileUrl(d: DocumentListItem) {
     const anyD: any = d as any;
     const url = anyD.viewUrl || anyD.fileUrl || anyD.downloadUrl || anyD.url;
-    if (typeof url === "string" && url.trim()) return url;
 
-    return `/api/documents/${d.documentId}/file`;
+    if (typeof url === "string" && url.trim()) {
+        if (url.startsWith("http://") || url.startsWith("https://")) return url;
+        return buildApiUrl(url.startsWith("/") ? url : `/${url}`);
+    }
+
+    return buildApiUrl(`/api/documents/${d.documentId}/file`);
 }
 
 async function fetchTextContent(documentId: number) {
-    const res = await api.get<{ content: string }>(`/api/documents/${documentId}/content`);
-    return res.data.content ?? "";
+    const res = await api.get<string>(`/api/documents/${documentId}/content`, {
+        responseType: "text",
+    });
+    return res.data ?? "";
 }
 
 export default function FileViewerPanel({ workspaceId }: Props) {
@@ -81,6 +94,9 @@ export default function FileViewerPanel({ workspaceId }: Props) {
     const [textError, setTextError] = useState<string | null>(null);
     const [textContent, setTextContent] = useState<string>("");
 
+    const [fileSectionOpen, setFileSectionOpen] = useState(true);
+    const [viewerSectionOpen, setViewerSectionOpen] = useState(true);
+
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const [uploadLoading, setUploadLoading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState<number>(0);
@@ -91,16 +107,19 @@ export default function FileViewerPanel({ workspaceId }: Props) {
         try {
             setDocLoading(true);
             setDocError(null);
+
             const data = await listDocuments({
                 query: query || undefined,
                 page,
                 size,
                 sort: "createdAt,desc",
             });
+
             setDocPage(data);
 
             const stillExists =
                 selected && data.content.some((x) => x.documentId === selected.documentId);
+
             if (selected && !stillExists) {
                 setSelected(null);
                 setViewerUrl(null);
@@ -181,6 +200,7 @@ export default function FileViewerPanel({ workspaceId }: Props) {
 
             const ok = data.success?.length ?? 0;
             const fail = data.failed?.length ?? 0;
+
             alert(`업로드 완료! 성공 ${ok} / 실패 ${fail}`);
             setPage(0);
             await fetchDocs();
@@ -195,20 +215,25 @@ export default function FileViewerPanel({ workspaceId }: Props) {
     };
 
     const list = docPage?.content ?? [];
-
-    const selectedTitle = useMemo(() => {
-        if (!selected) return "파일을 선택하세요";
-        return selected.title ?? `문서 #${selected.documentId}`;
-    }, [selected]);
+    
 
     return (
         <div className="space-y-4">
             <Card>
                 <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 text-sm font-extrabold text-slate-800">
+                    <button
+                        type="button"
+                        onClick={() => setFileSectionOpen((prev) => !prev)}
+                        className="inline-flex items-center gap-2 rounded-xl px-2 py-1 text-sm font-extrabold text-slate-800 hover:bg-slate-100"
+                    >
+                        {fileSectionOpen ? (
+                            <ChevronDown className="h-4 w-4 text-slate-500" />
+                        ) : (
+                            <ChevronRight className="h-4 w-4 text-slate-500" />
+                        )}
                         <FolderOpen className="h-4 w-4 text-slate-500" />
                         파일
-                    </div>
+                    </button>
 
                     <div className="flex items-center gap-2">
                         <button
@@ -242,130 +267,163 @@ export default function FileViewerPanel({ workspaceId }: Props) {
                     </div>
                 </div>
 
-                {(uploadLoading || uploadProgress > 0) && (
-                    <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-3">
-                        <div className="flex items-center justify-between text-xs">
-                            <div className="font-bold text-slate-700">업로드 진행률</div>
-                            <div className="font-black text-primary-700">{uploadProgress}%</div>
+                {fileSectionOpen && (
+                    <>
+                        {(uploadLoading || uploadProgress > 0) && (
+                            <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-3">
+                                <div className="flex items-center justify-between text-xs">
+                                    <div className="font-bold text-slate-700">업로드 진행률</div>
+                                    <div className="font-black text-primary-700">{uploadProgress}%</div>
+                                </div>
+                                <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                                    <div
+                                        className="h-full rounded-full bg-primary-500 transition-all"
+                                        style={{ width: `${uploadProgress}%` }}
+                                    />
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="mt-3 flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2">
+                            <Search className="h-4 w-4 text-slate-400" />
+                            <input
+                                value={query}
+                                onChange={(e) => {
+                                    setQuery(e.target.value);
+                                    setPage(0);
+                                }}
+                                placeholder="문서 검색(제목/파일명)"
+                                className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+                            />
                         </div>
-                        <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-100">
-                            <div className="h-full rounded-full bg-primary-500 transition-all" style={{ width: `${uploadProgress}%` }} />
-                        </div>
-                    </div>
-                )}
 
-                <div className="mt-3 flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2">
-                    <Search className="h-4 w-4 text-slate-400" />
-                    <input
-                        value={query}
-                        onChange={(e) => {
-                            setQuery(e.target.value);
-                            setPage(0);
-                        }}
-                        placeholder="문서 검색(제목/파일명)"
-                        className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
-                    />
-                </div>
+                        {docError && (
+                            <div className="mt-3 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm font-semibold text-rose-700">
+                                {docError}
+                            </div>
+                        )}
 
-                {docError && (
-                    <div className="mt-3 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm font-semibold text-rose-700">
-                        {docError}
-                    </div>
-                )}
+                        <div className="mt-3 overflow-hidden rounded-3xl border border-slate-200 bg-white">
+                            <div className="grid grid-cols-12 border-b border-slate-200 bg-slate-50 px-4 py-3 text-xs font-black text-slate-600">
+                                <div className="col-span-7">문서</div>
+                                <div className="col-span-3">등록일</div>
+                                <div className="col-span-2 text-right">삭제</div>
+                            </div>
 
-                <div className="mt-3 overflow-hidden rounded-3xl border border-slate-200 bg-white">
-                    <div className="grid grid-cols-12 border-b border-slate-200 bg-slate-50 px-4 py-3 text-xs font-black text-slate-600">
-                        <div className="col-span-7">문서</div>
-                        <div className="col-span-3">등록일</div>
-                        <div className="col-span-2 text-right">삭제</div>
-                    </div>
+                            {docLoading ? (
+                                <div className="px-4 py-4 text-sm text-slate-500">불러오는 중...</div>
+                            ) : list.length === 0 ? (
+                                <div className="px-4 py-4 text-sm text-slate-500">등록된 문서가 없습니다.</div>
+                            ) : (
+                                <ul className="divide-y divide-slate-200">
+                                    {list.map((d) => {
+                                        const active = selected?.documentId === d.documentId;
 
-                    {docLoading ? (
-                        <div className="px-4 py-4 text-sm text-slate-500">불러오는 중...</div>
-                    ) : list.length === 0 ? (
-                        <div className="px-4 py-4 text-sm text-slate-500">등록된 문서가 없습니다.</div>
-                    ) : (
-                        <ul className="divide-y divide-slate-200">
-                            {list.map((d) => {
-                                const active = selected?.documentId === d.documentId;
-                                return (
-                                    <li key={d.documentId} className="grid grid-cols-12 items-center gap-2 px-4 py-3">
-                                        <button
-                                            type="button"
-                                            onClick={() => onPick(d)}
-                                            className={[
-                                                "col-span-7 min-w-0 text-left rounded-2xl border px-3 py-2 transition",
-                                                active
-                                                    ? "border-primary-300 bg-primary-50"
-                                                    : "border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300",
-                                            ].join(" ")}
-                                        >
-                                            <div className="flex items-center gap-2">
-                                                <FileText className="h-4 w-4 text-slate-400" />
-                                                <div className="min-w-0">
-                                                    <div className="truncate text-sm font-bold text-slate-900">
-                                                        {d.title ?? `문서 #${d.documentId}`}
-                                                    </div>
-                                                    <div className="mt-0.5 truncate text-[11px] text-slate-500">
-                                                        {d.filename ? d.filename : `doc #${d.documentId}`}
-                                                        {typeof d.latestVersionId === "number" ? ` · ver #${d.latestVersionId}` : ""}
-                                                        {d.status ? ` · ${d.status}` : ""}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </button>
-
-                                        <div className="col-span-3 text-xs text-slate-600">{formatDate(d.createdAt)}</div>
-
-                                        <div className="col-span-2 text-right">
-                                            <button
-                                                type="button"
-                                                onClick={() => onDelete(d)}
-                                                disabled={docLoading}
-                                                className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-white px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-50 disabled:opacity-60"
+                                        return (
+                                            <li
+                                                key={d.documentId}
+                                                className="grid grid-cols-12 items-center gap-2 px-4 py-3"
                                             >
-                                                <Trash2 className="h-4 w-4" />
-                                                삭제
-                                            </button>
-                                        </div>
-                                    </li>
-                                );
-                            })}
-                        </ul>
-                    )}
-                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => onPick(d)}
+                                                    className={[
+                                                        "col-span-7 min-w-0 rounded-2xl border px-3 py-2 text-left transition",
+                                                        active
+                                                            ? "border-primary-300 bg-primary-50"
+                                                            : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50",
+                                                    ].join(" ")}
+                                                >
+                                                    <div className="flex items-center gap-2">
+                                                        <FileText className="h-4 w-4 text-slate-400" />
+                                                        <div className="min-w-0">
+                                                            <div className="truncate text-sm font-bold text-slate-900">
+                                                                {d.title ?? `문서 #${d.documentId}`}
+                                                            </div>
+                                                            <div className="mt-0.5 truncate text-[11px] text-slate-500">
+                                                                {d.filename
+                                                                    ? d.filename
+                                                                    : `doc #${d.documentId}`}
+                                                                {typeof d.latestVersionId === "number"
+                                                                    ? ` · ver #${d.latestVersionId}`
+                                                                    : ""}
+                                                                {d.status ? ` · ${d.status}` : ""}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </button>
 
-                {docPage && totalPages > 1 && (
-                    <div className="mt-3 flex items-center justify-between">
-                        <div className="text-xs text-slate-500">
-                            {docPage.totalElements}개 · {docPage.number + 1}/{docPage.totalPages} 페이지
+                                                <div className="col-span-3 text-xs text-slate-600">
+                                                    {formatDate(d.createdAt)}
+                                                </div>
+
+                                                <div className="col-span-2 text-right">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => onDelete(d)}
+                                                        disabled={docLoading}
+                                                        className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-white px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-50 disabled:opacity-60"
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                        삭제
+                                                    </button>
+                                                </div>
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                            )}
                         </div>
 
-                        <div className="flex items-center gap-2">
-                            <button
-                                type="button"
-                                onClick={() => setPage((p) => Math.max(0, p - 1))}
-                                disabled={docLoading || page <= 0}
-                                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
-                            >
-                                이전
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setPage((p) => Math.min((docPage?.totalPages ?? 1) - 1, p + 1))}
-                                disabled={docLoading || page >= (docPage?.totalPages ?? 1) - 1}
-                                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
-                            >
-                                다음
-                            </button>
-                        </div>
-                    </div>
+                        {docPage && totalPages > 1 && (
+                            <div className="mt-3 flex items-center justify-between">
+                                <div className="text-xs text-slate-500">
+                                    {docPage.totalElements}개 · {docPage.number + 1}/{docPage.totalPages} 페이지
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setPage((p) => Math.max(0, p - 1))}
+                                        disabled={docLoading || page <= 0}
+                                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                                    >
+                                        이전
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            setPage((p) =>
+                                                Math.min((docPage?.totalPages ?? 1) - 1, p + 1)
+                                            )
+                                        }
+                                        disabled={docLoading || page >= (docPage?.totalPages ?? 1) - 1}
+                                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                                    >
+                                        다음
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </>
                 )}
             </Card>
 
             <Card>
                 <div className="flex items-center justify-between gap-2">
-                    <div className="text-sm font-extrabold text-slate-800">뷰어</div>
+                    <button
+                        type="button"
+                        onClick={() => setViewerSectionOpen((prev) => !prev)}
+                        className="inline-flex items-center gap-2 rounded-xl px-2 py-1 text-sm font-extrabold text-slate-800 hover:bg-slate-100"
+                    >
+                        {viewerSectionOpen ? (
+                            <ChevronDown className="h-4 w-4 text-slate-500" />
+                        ) : (
+                            <ChevronRight className="h-4 w-4 text-slate-500" />
+                        )}
+                        뷰어
+                    </button>
+
                     {viewerUrl && (
                         <a
                             href={viewerUrl}
@@ -379,51 +437,58 @@ export default function FileViewerPanel({ workspaceId }: Props) {
                     )}
                 </div>
 
-                <div className="mt-3">
-                    {!selected && (
-                        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-                            왼쪽 파일 리스트에서 문서를 선택하면 여기에서 미리보기가 표시됩니다.
-                        </div>
-                    )}
-
-                    {selected && (
-                        <div className="space-y-3">
-                            <div className="rounded-2xl border border-slate-200 bg-white p-3">
-                                <div className="text-xs font-extrabold text-slate-500">선택된 문서</div>
-                                <div className="mt-1 text-sm font-black text-slate-900">{selectedTitle}</div>
-                                <div className="mt-1 text-xs text-slate-500">
-                                    {selected.filename ? `파일: ${selected.filename}` : `doc #${selected.documentId}`}
-                                </div>
+                {viewerSectionOpen && (
+                    <div className="mt-3">
+                        {!selected && (
+                            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+                                왼쪽 파일 리스트에서 문서를 선택하면 여기에서 미리보기가 표시됩니다.
                             </div>
+                        )}
 
-                            {viewerMode === "pdf" && viewerUrl && (
-                                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-                                    <iframe title="pdf-viewer" src={viewerUrl} className="h-[560px] w-full" />
-                                </div>
-                            )}
+                        {selected && (
+                            <div className="space-y-3">
 
-                            {viewerMode === "text" && (
-                                <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                                    {textLoading ? (
-                                        <div className="text-sm text-slate-600">불러오는 중...</div>
-                                    ) : textError ? (
-                                        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm font-semibold text-rose-700">
-                                            {textError}
-                                        </div>
-                                    ) : (
-                                        <pre className="whitespace-pre-wrap text-sm leading-relaxed text-slate-800">{textContent}</pre>
-                                    )}
-                                </div>
-                            )}
 
-                            {viewerMode === "unknown" && (
-                                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-                                    이 파일 형식은 브라우저 미리보기가 제한될 수 있어요. “새 탭에서 열기”로 확인하세요.
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </div>
+                                {viewerMode === "pdf" && viewerUrl && (
+                                    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                                        <iframe
+                                            title="pdf-viewer"
+                                            src={viewerUrl}
+                                            className="h-[560px] w-full"
+                                        />
+                                    </div>
+                                )}
+
+                                {viewerMode === "text" && (
+                                    <div className="rounded-2xl border border-slate-200 bg-white">
+                                        {textLoading ? (
+                                            <div className="p-4 text-sm text-slate-600">불러오는 중...</div>
+                                        ) : textError ? (
+                                            <div className="p-4">
+                                                <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm font-semibold text-rose-700">
+                                                    {textError}
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="max-h-[560px] overflow-auto p-4">
+                                                <pre className="whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-800">
+                                                    {textContent}
+                                                </pre>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {viewerMode === "unknown" && (
+                                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+                                        이 파일 형식은 브라우저 미리보기가 제한될 수 있어요.
+                                        “새 탭에서 열기”로 확인하세요.
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                )}
             </Card>
         </div>
     );
