@@ -1,10 +1,6 @@
 import { useEffect, useState } from "react";
 import api from "../api/client";
-
-export interface WorkspaceInit {
-    workspaceId: number;
-    conversationId: number;
-}
+import type {WorkspaceInit} from "../types/WorkspaceInit.ts";
 
 export default function useWorkspaceInit() {
     const [data, setData] = useState<WorkspaceInit | null>(null);
@@ -23,7 +19,9 @@ export default function useWorkspaceInit() {
             } catch (e) {
                 console.error("workspace init 실패", e);
             } finally {
-                if (mounted) setLoading(false);
+                if (mounted) {
+                    setLoading(false);
+                }
             }
         }
 

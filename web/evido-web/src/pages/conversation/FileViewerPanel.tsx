@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import Card from "../../components/common/Card";
 import api from "../../api/client";
 import {
     uploadDocumentsBulk,
@@ -18,6 +17,7 @@ import {
     FolderOpen,
     ChevronDown,
     ChevronRight,
+    Sparkles,
 } from "lucide-react";
 
 type Props = {
@@ -92,24 +92,25 @@ export default function FileViewerPanel({ workspaceId }: Props) {
 
     const [textLoading, setTextLoading] = useState(false);
     const [textError, setTextError] = useState<string | null>(null);
-    const [textContent, setTextContent] = useState<string>("");
+    const [textContent, setTextContent] = useState("");
 
     const [fileSectionOpen, setFileSectionOpen] = useState(true);
     const [viewerSectionOpen, setViewerSectionOpen] = useState(true);
 
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const [uploadLoading, setUploadLoading] = useState(false);
-    const [uploadProgress, setUploadProgress] = useState<number>(0);
+    const [uploadProgress, setUploadProgress] = useState(0);
 
     const totalPages = docPage?.totalPages ?? 0;
+    const list = docPage?.content ?? [];
 
-    const fetchDocs = async () => {
+    const fetchDocs = async (currentQuery = query) => {
         try {
             setDocLoading(true);
             setDocError(null);
 
             const data = await listDocuments({
-                query: query || undefined,
+                query: currentQuery || undefined,
                 page,
                 size,
                 sort: "createdAt,desc",
@@ -125,6 +126,7 @@ export default function FileViewerPanel({ workspaceId }: Props) {
                 setViewerUrl(null);
                 setViewerMode("unknown");
                 setTextContent("");
+                setTextError(null);
             }
         } catch (e: any) {
             console.error(e);
@@ -136,7 +138,18 @@ export default function FileViewerPanel({ workspaceId }: Props) {
 
     useEffect(() => {
         fetchDocs();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [page, workspaceId]);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setPage(0);
+            fetchDocs(query);
+        }, 250);
+
+        return () => clearTimeout(timer);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [query]);
 
     const onPick = async (d: DocumentListItem) => {
         setSelected(d);
@@ -166,7 +179,9 @@ export default function FileViewerPanel({ workspaceId }: Props) {
     };
 
     const onDelete = async (d: DocumentListItem) => {
-        if (!confirm(`문서를 삭제하시겠습니까?\n${d.title ?? `문서 #${d.documentId}`}`)) return;
+        if (!confirm(`문서를 삭제하시겠습니까?\n${d.title ?? `문서 #${d.documentId}`}`)) {
+            return;
+        }
 
         try {
             setDocLoading(true);
@@ -214,169 +229,168 @@ export default function FileViewerPanel({ workspaceId }: Props) {
         }
     };
 
-    const list = docPage?.content ?? [];
-    
-
     return (
-        <div className="space-y-4">
-            <Card>
-                <div className="flex items-center justify-between gap-2">
-                    <button
-                        type="button"
-                        onClick={() => setFileSectionOpen((prev) => !prev)}
-                        className="inline-flex items-center gap-2 rounded-xl px-2 py-1 text-sm font-extrabold text-slate-800 hover:bg-slate-100"
-                    >
-                        {fileSectionOpen ? (
-                            <ChevronDown className="h-4 w-4 text-slate-500" />
-                        ) : (
-                            <ChevronRight className="h-4 w-4 text-slate-500" />
-                        )}
-                        <FolderOpen className="h-4 w-4 text-slate-500" />
-                        파일
-                    </button>
+        <div className="space-y-5">
+            <section className="overflow-hidden rounded-[30px] border border-slate-200/80 bg-white/90 shadow-[0_18px_50px_rgba(15,23,42,0.06)] backdrop-blur-xl">
+                <div className="border-b border-slate-100 px-5 py-4">
+                    <div className="flex items-start justify-between gap-3">
+                        <div>
 
-                    <div className="flex items-center gap-2">
-                        <button
-                            type="button"
-                            onClick={fetchDocs}
-                            disabled={docLoading || uploadLoading}
-                            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
-                        >
-                            <RefreshCw className={`h-4 w-4 ${docLoading ? "animate-spin" : ""}`} />
-                            새로고침
-                        </button>
+                            <button
+                                type="button"
+                                onClick={() => setFileSectionOpen((prev) => !prev)}
+                                className="mt-3 inline-flex items-center gap-2 rounded-xl text-left text-base font-black text-slate-900 transition hover:text-primary-700"
+                            >
+                                {fileSectionOpen ? (
+                                    <ChevronDown className="h-4 w-4 text-slate-500" />
+                                ) : (
+                                    <ChevronRight className="h-4 w-4 text-slate-500" />
+                                )}
+                                <FolderOpen className="h-4 w-4 text-slate-500" />
+                                파일
+                            </button>
+                        </div>
 
-                        <button
-                            type="button"
-                            onClick={onUploadClick}
-                            disabled={uploadLoading}
-                            className="inline-flex items-center gap-2 rounded-xl border border-primary-200 bg-primary-50 px-3 py-2 text-xs font-black text-primary-700 hover:bg-primary-100 disabled:opacity-60"
-                        >
-                            <UploadCloud className="h-4 w-4" />
-                            업로드
-                        </button>
+                        <div className="flex shrink-0 items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={() => fetchDocs()}
+                                disabled={docLoading || uploadLoading}
+                                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                            >
+                                <RefreshCw
+                                    className={`h-4 w-4 ${docLoading ? "animate-spin" : ""}`}
+                                />
+                                새로고침
+                            </button>
 
-                        <input
-                            ref={fileInputRef}
-                            type="file"
-                            multiple
-                            accept=".pdf,.docx,.txt,.md"
-                            className="hidden"
-                            onChange={(e) => onUploadFiles(Array.from(e.target.files ?? []))}
-                        />
+                            <button
+                                type="button"
+                                onClick={onUploadClick}
+                                disabled={uploadLoading}
+                                className="inline-flex items-center gap-2 rounded-full border border-primary-200 bg-primary-50 px-3.5 py-2 text-xs font-black text-primary-700 transition hover:bg-primary-100 disabled:opacity-60"
+                            >
+                                <UploadCloud className="h-4 w-4" />
+                                업로드
+                            </button>
+
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                multiple
+                                accept=".pdf,.docx,.txt,.md"
+                                className="hidden"
+                                onChange={(e) => onUploadFiles(Array.from(e.target.files ?? []))}
+                            />
+                        </div>
                     </div>
                 </div>
 
                 {fileSectionOpen && (
-                    <>
+                    <div className="space-y-4 p-5">
                         {(uploadLoading || uploadProgress > 0) && (
-                            <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-3">
+                            <div className="rounded-[24px] border border-primary-100 bg-gradient-to-r from-primary-50 to-white p-4">
                                 <div className="flex items-center justify-between text-xs">
-                                    <div className="font-bold text-slate-700">업로드 진행률</div>
-                                    <div className="font-black text-primary-700">{uploadProgress}%</div>
+                                    <span className="font-bold text-slate-700">업로드 진행률</span>
+                                    <span className="font-black text-primary-700">
+                                        {uploadProgress}%
+                                    </span>
                                 </div>
-                                <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-100">
+
+                                <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
                                     <div
-                                        className="h-full rounded-full bg-primary-500 transition-all"
+                                        className="h-full rounded-full bg-primary-500 transition-all duration-300"
                                         style={{ width: `${uploadProgress}%` }}
                                     />
                                 </div>
                             </div>
                         )}
 
-                        <div className="mt-3 flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2">
-                            <Search className="h-4 w-4 text-slate-400" />
-                            <input
-                                value={query}
-                                onChange={(e) => {
-                                    setQuery(e.target.value);
-                                    setPage(0);
-                                }}
-                                placeholder="문서 검색(제목/파일명)"
-                                className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
-                            />
-                        </div>
-
                         {docError && (
-                            <div className="mt-3 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm font-semibold text-rose-700">
+                            <div className="rounded-[24px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
                                 {docError}
                             </div>
                         )}
 
-                        <div className="mt-3 overflow-hidden rounded-3xl border border-slate-200 bg-white">
-                            <div className="grid grid-cols-12 border-b border-slate-200 bg-slate-50 px-4 py-3 text-xs font-black text-slate-600">
-                                <div className="col-span-7">문서</div>
-                                <div className="col-span-3">등록일</div>
-                                <div className="col-span-2 text-right">삭제</div>
-                            </div>
-
+                        <div className="space-y-3">
                             {docLoading ? (
-                                <div className="px-4 py-4 text-sm text-slate-500">불러오는 중...</div>
+                                <div className="rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
+                                    문서를 불러오는 중...
+                                </div>
                             ) : list.length === 0 ? (
-                                <div className="px-4 py-4 text-sm text-slate-500">등록된 문서가 없습니다.</div>
+                                <div className="rounded-[24px] border border-dashed border-slate-200 bg-slate-50/70 px-4 py-10 text-center">
+                                    <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
+                                        <FileText className="h-5 w-5 text-slate-400" />
+                                    </div>
+                                    <div className="text-sm font-semibold text-slate-700">
+                                        등록된 문서가 없습니다
+                                    </div>
+                                    <div className="mt-1 text-xs text-slate-500">
+                                        PDF, TXT, MD 문서를 업로드해서 시작해보세요.
+                                    </div>
+                                </div>
                             ) : (
-                                <ul className="divide-y divide-slate-200">
-                                    {list.map((d) => {
-                                        const active = selected?.documentId === d.documentId;
+                                list.map((d) => {
+                                    const active = selected?.documentId === d.documentId;
 
-                                        return (
-                                            <li
-                                                key={d.documentId}
-                                                className="grid grid-cols-12 items-center gap-2 px-4 py-3"
-                                            >
+                                    return (
+                                        <div
+                                            key={d.documentId}
+                                            className={[
+                                                "rounded-[26px] border p-4 transition-all",
+                                                active
+                                                    ? "border-primary-200 bg-primary-50/70 shadow-[0_12px_30px_rgba(109,40,217,0.08)]"
+                                                    : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm",
+                                            ].join(" ")}
+                                        >
+                                            <div className="flex items-start gap-3">
                                                 <button
                                                     type="button"
                                                     onClick={() => onPick(d)}
-                                                    className={[
-                                                        "col-span-7 min-w-0 rounded-2xl border px-3 py-2 text-left transition",
-                                                        active
-                                                            ? "border-primary-300 bg-primary-50"
-                                                            : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50",
-                                                    ].join(" ")}
+                                                    className="flex min-w-0 flex-1 items-start gap-3 text-left"
                                                 >
-                                                    <div className="flex items-center gap-2">
-                                                        <FileText className="h-4 w-4 text-slate-400" />
-                                                        <div className="min-w-0">
-                                                            <div className="truncate text-sm font-bold text-slate-900">
-                                                                {d.title ?? `문서 #${d.documentId}`}
-                                                            </div>
-                                                            <div className="mt-0.5 truncate text-[11px] text-slate-500">
-                                                                {d.filename
-                                                                    ? d.filename
-                                                                    : `doc #${d.documentId}`}
-                                                                {typeof d.latestVersionId === "number"
-                                                                    ? ` · ver #${d.latestVersionId}`
-                                                                    : ""}
-                                                                {d.status ? ` · ${d.status}` : ""}
-                                                            </div>
+                                                    <div
+                                                        className={[
+                                                            "mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ring-1",
+                                                            active
+                                                                ? "bg-white text-primary-700 ring-primary-200"
+                                                                : "bg-slate-50 text-slate-500 ring-slate-200",
+                                                        ].join(" ")}
+                                                    >
+                                                        <FileText className="h-5 w-5" />
+                                                    </div>
+
+                                                    <div className="min-w-0 flex-1">
+                                                        <div className="truncate text-sm font-bold text-slate-900">
+                                                            {d.title ?? `문서 #${d.documentId}`}
+                                                        </div>
+
+                                                        <div className="mt-1 truncate text-xs text-slate-500">
+                                                            {d.filename
+                                                                ? d.filename
+                                                                : `doc #${d.documentId}`}
                                                         </div>
                                                     </div>
                                                 </button>
 
-                                                <div className="col-span-3 text-xs text-slate-600">
-                                                    {formatDate(d.createdAt)}
-                                                </div>
-
-                                                <div className="col-span-2 text-right">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => onDelete(d)}
-                                                        disabled={docLoading}
-                                                        className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-white px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-50 disabled:opacity-60"
-                                                    >
-                                                        <Trash2 className="h-4 w-4" />
-                                                        삭제
-                                                    </button>
-                                                </div>
-                                            </li>
-                                        );
-                                    })}
-                                </ul>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => onDelete(d)}
+                                                    disabled={docLoading}
+                                                    className="inline-flex shrink-0 items-center gap-2 rounded-full border border-rose-200 bg-white px-3 py-2 text-xs font-bold text-rose-700 transition hover:bg-rose-50 disabled:opacity-60"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                    삭제
+                                                </button>
+                                            </div>
+                                        </div>
+                                    );
+                                })
                             )}
                         </div>
 
                         {docPage && totalPages > 1 && (
-                            <div className="mt-3 flex items-center justify-between">
+                            <div className="flex items-center justify-between rounded-[22px] border border-slate-200 bg-slate-50/70 px-4 py-3">
                                 <div className="text-xs text-slate-500">
                                     {docPage.totalElements}개 · {docPage.number + 1}/{docPage.totalPages} 페이지
                                 </div>
@@ -386,10 +400,11 @@ export default function FileViewerPanel({ workspaceId }: Props) {
                                         type="button"
                                         onClick={() => setPage((p) => Math.max(0, p - 1))}
                                         disabled={docLoading || page <= 0}
-                                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                                        className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
                                     >
                                         이전
                                     </button>
+
                                     <button
                                         type="button"
                                         onClick={() =>
@@ -397,81 +412,107 @@ export default function FileViewerPanel({ workspaceId }: Props) {
                                                 Math.min((docPage?.totalPages ?? 1) - 1, p + 1)
                                             )
                                         }
-                                        disabled={docLoading || page >= (docPage?.totalPages ?? 1) - 1}
-                                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                                        disabled={
+                                            docLoading ||
+                                            page >= (docPage?.totalPages ?? 1) - 1
+                                        }
+                                        className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
                                     >
                                         다음
                                     </button>
                                 </div>
                             </div>
                         )}
-                    </>
+                    </div>
                 )}
-            </Card>
+            </section>
 
-            <Card>
-                <div className="flex items-center justify-between gap-2">
-                    <button
-                        type="button"
-                        onClick={() => setViewerSectionOpen((prev) => !prev)}
-                        className="inline-flex items-center gap-2 rounded-xl px-2 py-1 text-sm font-extrabold text-slate-800 hover:bg-slate-100"
-                    >
-                        {viewerSectionOpen ? (
-                            <ChevronDown className="h-4 w-4 text-slate-500" />
-                        ) : (
-                            <ChevronRight className="h-4 w-4 text-slate-500" />
+            <section className="overflow-hidden rounded-[30px] border border-slate-200/80 bg-white/90 shadow-[0_18px_50px_rgba(15,23,42,0.06)] backdrop-blur-xl">
+                <div className="border-b border-slate-100 px-5 py-4">
+                    <div className="flex items-start justify-between gap-3">
+                        <div>
+                            <button
+                                type="button"
+                                onClick={() => setViewerSectionOpen((prev) => !prev)}
+                                className="inline-flex items-center gap-2 text-left text-base font-black text-slate-900 transition hover:text-primary-700"
+                            >
+                                {viewerSectionOpen ? (
+                                    <ChevronDown className="h-4 w-4 text-slate-500" />
+                                ) : (
+                                    <ChevronRight className="h-4 w-4 text-slate-500" />
+                                )}
+                                미리보기
+                            </button>
+
+                        </div>
+
+                        {viewerUrl && (
+                            <a
+                                href={viewerUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-50"
+                            >
+                                <ExternalLink className="h-4 w-4" />
+                                새 탭에서 열기
+                            </a>
                         )}
-                        뷰어
-                    </button>
-
-                    {viewerUrl && (
-                        <a
-                            href={viewerUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
-                        >
-                            <ExternalLink className="h-4 w-4" />
-                            새 탭에서 열기
-                        </a>
-                    )}
+                    </div>
                 </div>
 
                 {viewerSectionOpen && (
-                    <div className="mt-3">
+                    <div className="p-5">
                         {!selected && (
-                            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-                                왼쪽 파일 리스트에서 문서를 선택하면 여기에서 미리보기가 표시됩니다.
+                            <div className="rounded-[26px] border border-dashed border-slate-200 bg-slate-50/70 px-5 py-12 text-center">
+                                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-3xl bg-white shadow-sm ring-1 ring-slate-200">
+                                    <FileText className="h-6 w-6 text-slate-400" />
+                                </div>
+
+                                <div className="text-sm font-semibold text-slate-700">
+                                    문서를 선택하면 미리보기가 표시됩니다
+                                </div>
+                                <div className="mt-1 text-xs text-slate-500">
+                                    왼쪽 목록에서 문서를 눌러보세요.
+                                </div>
                             </div>
                         )}
 
                         {selected && (
-                            <div className="space-y-3">
-
+                            <div className="space-y-4">
+                                <div className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-4">
+                                    <div className="text-sm font-bold text-slate-900">
+                                        {selected.title ?? `문서 #${selected.documentId}`}
+                                    </div>
+                                    <div className="mt-1 text-xs text-slate-500">
+                                        {selected.filename || `doc #${selected.documentId}`}
+                                    </div>
+                                </div>
 
                                 {viewerMode === "pdf" && viewerUrl && (
-                                    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                                    <div className="overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-sm">
                                         <iframe
                                             title="pdf-viewer"
                                             src={viewerUrl}
-                                            className="h-[560px] w-full"
+                                            className="h-[620px] w-full"
                                         />
                                     </div>
                                 )}
 
                                 {viewerMode === "text" && (
-                                    <div className="rounded-2xl border border-slate-200 bg-white">
+                                    <div className="overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-sm">
                                         {textLoading ? (
-                                            <div className="p-4 text-sm text-slate-600">불러오는 중...</div>
+                                            <div className="px-5 py-8 text-sm text-slate-500">
+                                                텍스트를 불러오는 중...
+                                            </div>
                                         ) : textError ? (
                                             <div className="p-4">
-                                                <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm font-semibold text-rose-700">
+                                                <div className="rounded-[20px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
                                                     {textError}
                                                 </div>
                                             </div>
                                         ) : (
-                                            <div className="max-h-[560px] overflow-auto p-4">
-                                                <pre className="whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-800">
+                                            <div className="max-h-[620px] overflow-auto px-5 py-4">
+                                                <pre className="whitespace-pre-wrap break-words text-sm leading-7 text-slate-800">
                                                     {textContent}
                                                 </pre>
                                             </div>
@@ -480,16 +521,17 @@ export default function FileViewerPanel({ workspaceId }: Props) {
                                 )}
 
                                 {viewerMode === "unknown" && (
-                                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+                                    <div className="rounded-[26px] border border-slate-200 bg-slate-50/80 px-5 py-6 text-sm leading-6 text-slate-600">
                                         이 파일 형식은 브라우저 미리보기가 제한될 수 있어요.
-                                        “새 탭에서 열기”로 확인하세요.
+                                        <br />
+                                        상단의 <span className="font-semibold">새 탭에서 열기</span>로 확인해보세요.
                                     </div>
                                 )}
                             </div>
                         )}
                     </div>
                 )}
-            </Card>
+            </section>
         </div>
     );
 }

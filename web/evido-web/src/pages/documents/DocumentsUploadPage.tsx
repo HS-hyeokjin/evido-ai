@@ -1,8 +1,25 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import Card from "../../components/common/Card";
-import Button from "../../components/common/Button";
-import { uploadDocumentsBulk, listDocuments, deleteDocument, type BulkUploadResponse, type DocumentListItem, type PageResponse } from "../../api/documents";
-import { UploadCloud, FolderOpen, RefreshCw, Trash2, CheckCircle2, XCircle, FileText, AlertTriangle, HardDrive } from "lucide-react";
+import {
+    uploadDocumentsBulk,
+    listDocuments,
+    deleteDocument,
+    type BulkUploadResponse,
+    type DocumentListItem,
+    type PageResponse
+} from "../../api/documents";
+import {
+    UploadCloud,
+    FolderOpen,
+    RefreshCw,
+    Trash2,
+    CheckCircle2,
+    XCircle,
+    FileText,
+    AlertTriangle,
+    HardDrive,
+    Sparkles,
+    ChevronRight
+} from "lucide-react";
 
 const ACCEPTED_EXTS = [".pdf", ".docx", ".txt", ".md"] as const;
 const MAX_BYTES = 20 * 1024 * 1024;
@@ -125,11 +142,11 @@ export default function DocumentsUploadPage() {
 
     const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-    const acceptedHint = "PDF/DOCX/TXT/MD";
+    const acceptedHint = "PDF / DOCX / TXT / MD";
     const maxHint = prettySize(MAX_BYTES);
 
     const summaryLabel = useMemo(() => {
-        if (files.length === 0) return `파일/폴더를 드래그해서 놓거나 클릭해서 선택 (${acceptedHint})`;
+        if (files.length === 0) return `파일/폴더를 드래그하거나 클릭해서 선택하세요`;
         const totalBytes = files.reduce((acc, f) => acc + f.size, 0);
         return `${files.length}개 선택됨 · 총 ${prettySize(totalBytes)}`;
     }, [files]);
@@ -182,7 +199,7 @@ export default function DocumentsUploadPage() {
         const droppedExts = dropped.map((f) => getExt(f.name)).filter(Boolean);
         const hasAnyAccepted = droppedExts.some((ext) => ACCEPTED_EXTS.includes(ext as any));
         if (!hasAnyAccepted) {
-            alert(`허용 파일(${acceptedHint})이 없음. 폴더를 드롭했으면 확장자를 확인.`);
+            alert(`허용 파일(${acceptedHint})이 없습니다. 폴더를 드롭했다면 확장자를 확인해주세요.`);
             return;
         }
     };
@@ -247,7 +264,7 @@ export default function DocumentsUploadPage() {
     }, [result]);
 
     const onUpload = async () => {
-        if (files.length === 0) return alert("파일 선택!");
+        if (files.length === 0) return alert("파일을 선택해주세요.");
         try {
             setLoading(true);
             setProgress(0);
@@ -271,11 +288,10 @@ export default function DocumentsUploadPage() {
     };
 
     const onDeleteDoc = async (documentId: number) => {
-        if (!confirm(`문서를 삭제하시겠습니까?`)) return;
+        if (!confirm("문서를 삭제하시겠습니까?")) return;
 
         try {
             setDocLoading(true);
-
             await deleteDocument(documentId);
             await fetchDocs();
         } catch (e: any) {
@@ -289,357 +305,419 @@ export default function DocumentsUploadPage() {
     const totalSelectedBytes = useMemo(() => files.reduce((acc, f) => acc + f.size, 0), [files]);
 
     return (
-        <div className="max-w-4xl space-y-4">
-            <div className="flex items-start justify-between gap-3">
-                <div>
-                    <h1 className="text-xl font-black text-slate-900">문서 업로드</h1>
-                    <p className="mt-1 text-sm text-slate-500">
-                    </p>
+        <div className="max-w-5xl space-y-6 font-sans text-slate-800">
+            <div className="relative overflow-hidden rounded-[22px] border border-[#EEE7FB] bg-gradient-to-br from-white via-[#FCFAFF] to-[#F7F2FF] p-5 shadow-[0_8px_24px_rgba(124,106,166,0.06)]">
+                <div className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-[#EDE2FF]/60 blur-3xl" />
+                <div className="absolute -bottom-10 left-8 h-24 w-24 rounded-full bg-[#F3ECFF] blur-3xl" />
+
+                <div className="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                    <div>
+                        <div className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-[#E9DFFB] bg-white/80 px-2.5 py-1 text-[11px] font-semibold text-[#8A72B8]">
+                            <Sparkles size={12} />
+                            Document Upload
+                        </div>
+
+                        <h1 className="text-2xl font-black tracking-tight text-slate-900 md:text-3xl">
+                            문서 업로드
+                        </h1>
+
+                        <p className="mt-1.5 text-xs leading-5 text-[#7B728D]">
+                            파일을 업로드하고 문서 목록을 관리할 수 있어요.
+                        </p>
+                    </div>
+
+                    <div className="inline-flex items-center gap-2 rounded-xl border border-[#E9DFFB] bg-white/80 px-3 py-2 text-xs font-semibold text-[#7C63B8]">
+                        <HardDrive className="h-4 w-4" />
+                        최대 {maxHint}
+                    </div>
                 </div>
 
-                <div className="hidden sm:flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600">
-                    <HardDrive className="h-4 w-4" />
-                    최대 {maxHint}
+                <div className="relative mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+                    <div className="rounded-xl border border-[#EEE7FB] bg-white/75 px-3.5 py-3 backdrop-blur">
+                        <div className="text-[11px] font-semibold text-[#9A8CB8]">허용 형식</div>
+                        <div className="mt-1 text-sm font-black text-slate-900">{acceptedHint}</div>
+                    </div>
+                    <div className="rounded-xl border border-[#EEE7FB] bg-white/75 px-3.5 py-3 backdrop-blur">
+                        <div className="text-[11px] font-semibold text-[#9A8CB8]">선택 파일</div>
+                        <div className="mt-1 text-sm font-black text-slate-900">{files.length}개</div>
+                    </div>
+                    <div className="rounded-xl border border-[#EEE7FB] bg-white/75 px-3.5 py-3 backdrop-blur">
+                        <div className="text-[11px] font-semibold text-[#9A8CB8]">총 용량</div>
+                        <div className="mt-1 text-sm font-black text-slate-900">{prettySize(totalSelectedBytes)}</div>
+                    </div>
                 </div>
             </div>
 
-            <Card>
-                <div className="grid gap-4">
-                    <input
-                        ref={fileInputRef}
-                        type="file"
-                        multiple
-                        accept=".pdf,.docx,.txt,.md"
-                        onChange={(e) => addFiles(Array.from(e.target.files ?? []))}
-                        className="hidden"
-                    />
-
-                    <div className="flex items-center justify-between gap-3">
-                        <div className="text-sm font-extrabold text-slate-800">파일/폴더 업로드</div>
-                        <button
-                            type="button"
-                            onClick={clearAll}
-                            disabled={loading || (files.length === 0 && rejected.length === 0)}
-                            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
-                        >
-                            전체 초기화
-                        </button>
+            <section className="rounded-[22px] border border-[#F0E9FC] bg-white p-5 shadow-[0_8px_24px_rgba(100,90,140,0.04)]">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                    <div>
+                        <div className="text-base font-black text-slate-900">파일/폴더 업로드</div>
+                        <div className="text-xs text-[#8B84A0]">
+                            드래그 앤 드롭 또는 클릭해서 추가할 수 있어요
+                        </div>
                     </div>
 
-                    <div
-                        role="button"
-                        tabIndex={0}
-                        onClick={onBrowseClick}
-                        onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === " ") onBrowseClick();
-                        }}
-                        onDrop={onDrop}
-                        onDragOver={onDragOver}
-                        onDragLeave={onDragLeave}
-                        className={[
-                            "rounded-3xl border-2 border-dashed p-5 transition",
-                            "bg-gradient-to-b from-white to-slate-50",
-                            "shadow-sm",
-                            loading ? "border-slate-200 opacity-70 cursor-not-allowed" : "",
-                            !loading && isDragging ? "border-primary-500 ring-4 ring-primary-100" : "",
-                            !loading && !isDragging ? "border-slate-200 hover:border-slate-300" : "",
-                        ].join(" ")}
+                    <button
+                        type="button"
+                        onClick={clearAll}
+                        disabled={loading || (files.length === 0 && rejected.length === 0)}
+                        className="rounded-xl border border-[#E9DFFB] bg-[#FCFAFF] px-3 py-2 text-xs font-bold text-[#7C63B8] transition hover:bg-[#F7F1FF] disabled:opacity-50"
                     >
-                        <div className="flex items-center justify-between gap-4">
-                            <div className="min-w-0">
-                                <div className="flex items-center gap-2">
-                                    <div className="grid h-10 w-10 place-items-center rounded-2xl bg-primary-50 text-primary-700">
-                                        <UploadCloud className="h-5 w-5" />
+                        전체 초기화
+                    </button>
+                </div>
+
+                <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept=".pdf,.docx,.txt,.md"
+                    onChange={(e) => addFiles(Array.from(e.target.files ?? []))}
+                    className="hidden"
+                />
+
+                <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={onBrowseClick}
+                    onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") onBrowseClick();
+                    }}
+                    onDrop={onDrop}
+                    onDragOver={onDragOver}
+                    onDragLeave={onDragLeave}
+                    className={[
+                        "rounded-3xl border-2 border-dashed p-5 transition",
+                        "bg-gradient-to-b from-[#FFFEFF] to-[#F9F5FF]",
+                        loading ? "cursor-not-allowed border-[#EEE7FB] opacity-70" : "",
+                        !loading && isDragging ? "border-[#BFA8F8] ring-4 ring-[#F1EAFE]" : "",
+                        !loading && !isDragging ? "border-[#E9DFFB] hover:border-[#DCCBFA]" : "",
+                    ].join(" ")}
+                >
+                    <div className="flex items-center justify-between gap-4">
+                        <div className="min-w-0">
+                            <div className="flex items-center gap-3">
+                                <div className="grid h-11 w-11 place-items-center rounded-2xl bg-[#F4EEFF] text-[#8A72B8]">
+                                    <UploadCloud className="h-5 w-5" />
+                                </div>
+
+                                <div className="min-w-0">
+                                    <div className="truncate text-sm font-black text-slate-900">
+                                        {summaryLabel}
                                     </div>
-                                    <div className="min-w-0">
-                                        <div className="truncate text-sm font-black text-slate-900">{summaryLabel}</div>
-                                        <div className="mt-1 text-xs text-slate-500">
-                                            허용: {acceptedHint} · 최대 {maxHint} · 드래그/드롭 또는 클릭
-                                        </div>
+                                    <div className="mt-1 text-xs text-[#8B84A0]">
+                                        허용: {acceptedHint} · 최대 {maxHint}
                                     </div>
                                 </div>
                             </div>
-
-                            <span className="shrink-0 inline-flex items-center gap-2 rounded-2xl bg-primary-100 px-4 py-2 text-xs font-black text-primary-700">
-                <FolderOpen className="h-4 w-4" />
-                추가
-              </span>
                         </div>
 
-                        {files.length > 0 && (
-                            <div className="mt-4 grid gap-2 sm:grid-cols-3">
-                                <div className="rounded-2xl border border-slate-200 bg-white px-3 py-2">
-                                    <div className="text-[11px] font-extrabold text-slate-500">선택 파일</div>
-                                    <div className="text-sm font-black text-slate-900">{files.length}개</div>
-                                </div>
-                                <div className="rounded-2xl border border-slate-200 bg-white px-3 py-2">
-                                    <div className="text-[11px] font-extrabold text-slate-500">총 용량</div>
-                                    <div className="text-sm font-black text-slate-900">{prettySize(totalSelectedBytes)}</div>
-                                </div>
-                                <div className="rounded-2xl border border-slate-200 bg-white px-3 py-2">
-                                    <div className="text-[11px] font-extrabold text-slate-500">topK 기본값</div>
-                                    <div className="text-sm font-black text-slate-900">5</div>
-                                </div>
+                        <span className="inline-flex shrink-0 items-center gap-2 rounded-2xl bg-[#F4EEFF] px-4 py-2 text-xs font-black text-[#7C63B8]">
+                            <FolderOpen className="h-4 w-4" />
+                            파일 추가
+                        </span>
+                    </div>
+
+                    {files.length > 0 && (
+                        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                            <div className="rounded-2xl border border-[#EEE7FB] bg-white px-3 py-3">
+                                <div className="text-[11px] font-extrabold text-[#9A8CB8]">선택 파일</div>
+                                <div className="text-sm font-black text-slate-900">{files.length}개</div>
+                            </div>
+                            <div className="rounded-2xl border border-[#EEE7FB] bg-white px-3 py-3">
+                                <div className="text-[11px] font-extrabold text-[#9A8CB8]">총 용량</div>
+                                <div className="text-sm font-black text-slate-900">{prettySize(totalSelectedBytes)}</div>
+                            </div>
+                            <div className="rounded-2xl border border-[#EEE7FB] bg-white px-3 py-3">
+                                <div className="text-[11px] font-extrabold text-[#9A8CB8]">기본 topK</div>
+                                <div className="text-sm font-black text-slate-900">5</div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {loading && (
+                    <div className="mt-4 rounded-3xl border border-[#EEE7FB] bg-white p-4">
+                        <div className="flex items-center justify-between text-xs">
+                            <div className="font-black text-slate-700">업로드 진행률</div>
+                            <div className="font-black text-[#7C63B8]">{progress}%</div>
+                        </div>
+
+                        <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-[#F1EAFE]">
+                            <div
+                                className="h-full rounded-full bg-[#BFA8F8] transition-all"
+                                style={{ width: `${progress}%` }}
+                            />
+                        </div>
+
+                        <div className="mt-2 text-[11px] text-[#9A93AD]">
+                            처리량에 따라 진행률이 일정하지 않을 수 있어요.
+                        </div>
+                    </div>
+                )}
+
+                {files.length > 0 && (
+                    <div className="mt-4 overflow-hidden rounded-3xl border border-[#EEE7FB] bg-white">
+                        <div className="flex items-center justify-between border-b border-[#EEE7FB] bg-[#FCFAFF] px-4 py-3">
+                            <div className="flex items-center gap-2 text-sm font-black text-slate-800">
+                                <FileText className="h-4 w-4 text-[#8A72B8]" />
+                                선택된 파일
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={clearAll}
+                                disabled={loading}
+                                className="rounded-xl border border-[#E9DFFB] bg-white px-3 py-2 text-xs font-bold text-[#7C63B8] transition hover:bg-[#F7F1FF] disabled:opacity-50"
+                            >
+                                전체 제거
+                            </button>
+                        </div>
+
+                        <ul className="divide-y divide-[#F1EAFB]">
+                            {files.map((f, idx) => (
+                                <li
+                                    key={`${f.name}-${f.size}-${f.lastModified}-${idx}`}
+                                    className="flex items-center justify-between gap-3 px-4 py-3"
+                                >
+                                    <div className="min-w-0">
+                                        <div className="truncate text-sm font-bold text-slate-900">{f.name}</div>
+                                        <div className="mt-1 text-xs text-[#8B84A0]">
+                                            {prettySize(f.size)} · {f.type || "mime:unknown"}
+                                        </div>
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => removeFile(idx)}
+                                        disabled={loading}
+                                        className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-[#E9DFFB] bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:bg-[#FCFAFF] disabled:opacity-50"
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                        제거
+                                    </button>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+
+                {rejected.length > 0 && (
+                    <div className="mt-4 rounded-3xl border border-amber-200 bg-[#FFF8EB] p-4">
+                        <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 text-sm font-black text-amber-900">
+                                <AlertTriangle className="h-4 w-4" />
+                                제외된 파일
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={() => setRejected([])}
+                                disabled={loading}
+                                className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-xs font-bold text-amber-900 transition hover:bg-amber-100 disabled:opacity-50"
+                            >
+                                목록 비우기
+                            </button>
+                        </div>
+
+                        <div className="mt-1 text-xs text-amber-800">
+                            허용: {acceptedHint} · 최대 {maxHint}
+                        </div>
+
+                        <ul className="mt-3 space-y-2">
+                            {rejected.slice(0, 10).map((r, idx) => (
+                                <li key={`${r.name}-${idx}`} className="rounded-2xl border border-amber-200 bg-white p-3">
+                                    <div className="truncate text-sm font-bold text-slate-900">{r.name}</div>
+                                    <div className="mt-1 text-xs text-slate-600">{prettySize(r.size)}</div>
+                                    <div className="mt-1 text-xs font-bold text-amber-700">{r.reason}</div>
+                                </li>
+                            ))}
+                        </ul>
+
+                        {rejected.length > 10 && (
+                            <div className="mt-2 text-xs text-amber-800">
+                                * {rejected.length}개 중 10개만 표시 중
                             </div>
                         )}
                     </div>
+                )}
 
-                    {loading && (
-                        <div className="rounded-3xl border border-slate-200 bg-white p-4">
-                            <div className="flex items-center justify-between text-xs">
-                                <div className="font-black text-slate-700">업로드 진행률</div>
-                                <div className="font-black text-primary-700">{progress}%</div>
-                            </div>
-                            <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-100">
-                                <div className="h-full rounded-full bg-primary-500 transition-all" style={{ width: `${progress}%` }} />
-                            </div>
-                            <div className="mt-2 text-[11px] text-slate-400">
-                                처리량에 따라 진행률이 일정하지 않을 수 있어요.
-                            </div>
-                        </div>
-                    )}
-
-                    {files.length > 0 && (
-                        <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white">
-                            <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-3">
-                                <div className="flex items-center gap-2 text-sm font-black text-slate-800">
-                                    <FileText className="h-4 w-4 text-slate-500" />
-                                    선택된 파일
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={clearAll}
-                                    disabled={loading}
-                                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold hover:bg-slate-50 disabled:opacity-60"
-                                >
-                                    전체 제거
-                                </button>
-                            </div>
-
-                            <ul className="divide-y divide-slate-200">
-                                {files.map((f, idx) => (
-                                    <li
-                                        key={`${f.name}-${f.size}-${f.lastModified}-${idx}`}
-                                        className="flex items-center justify-between gap-3 px-4 py-3"
-                                    >
-                                        <div className="min-w-0">
-                                            <div className="truncate text-sm font-bold text-slate-900">{f.name}</div>
-                                            <div className="mt-1 text-xs text-slate-500">
-                                                {prettySize(f.size)} · {f.type || "mime:unknown"}
-                                            </div>
-                                        </div>
-
-                                        <button
-                                            type="button"
-                                            onClick={() => removeFile(idx)}
-                                            disabled={loading}
-                                            className="shrink-0 inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                            제거
-                                        </button>
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                    )}
-
-                    {rejected.length > 0 && (
-                        <div className="rounded-3xl border border-amber-200 bg-amber-50 p-4">
-                            <div className="flex items-center justify-between gap-2">
-                                <div className="flex items-center gap-2 text-sm font-black text-amber-900">
-                                    <AlertTriangle className="h-4 w-4" />
-                                    제외된 파일
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={() => setRejected([])}
-                                    disabled={loading}
-                                    className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-xs font-bold hover:bg-amber-100 disabled:opacity-60"
-                                >
-                                    목록 비우기
-                                </button>
-                            </div>
-
-                            <div className="mt-1 text-xs text-amber-800">
-                                허용: {acceptedHint} · 최대 {maxHint}
-                            </div>
-
-                            <ul className="mt-3 space-y-2">
-                                {rejected.slice(0, 10).map((r, idx) => (
-                                    <li key={`${r.name}-${idx}`} className="rounded-2xl border border-amber-200 bg-white p-3">
-                                        <div className="truncate text-sm font-bold text-slate-900">{r.name}</div>
-                                        <div className="mt-1 text-xs text-slate-600">{prettySize(r.size)}</div>
-                                        <div className="mt-1 text-xs font-bold text-amber-700">{r.reason}</div>
-                                    </li>
-                                ))}
-                            </ul>
-
-                            {rejected.length > 10 && (
-                                <div className="mt-2 text-xs text-amber-800">* {rejected.length}개 중 10개만 표시 중</div>
-                            )}
-                        </div>
-                    )}
-
-                    <Button onClick={onUpload} disabled={loading || files.length === 0} className="w-full">
-                        {loading ? "업로드 중..." : `업로드 (${files.length}개)`}
-                    </Button>
-                </div>
-            </Card>
+                <button
+                    onClick={onUpload}
+                    disabled={loading || files.length === 0}
+                    className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#BFA8F8] px-4 py-3 text-sm font-bold text-white shadow-[0_10px_18px_rgba(191,168,248,0.28)] transition hover:-translate-y-0.5 hover:bg-[#B397F4] disabled:cursor-not-allowed disabled:bg-[#E5DBFA] disabled:shadow-none"
+                >
+                    <UploadCloud className="h-4 w-4" />
+                    {loading ? "업로드 중..." : `업로드 (${files.length}개)`}
+                </button>
+            </section>
 
             {result && (
-                <div className="grid gap-3 md:grid-cols-2">
-                    <Card>
+                <div className="grid gap-4 md:grid-cols-2">
+                    <section className="rounded-[22px] border border-[#F0E9FC] bg-white p-5 shadow-[0_8px_24px_rgba(100,90,140,0.04)]">
                         <div className="mb-3 flex items-center gap-2 text-sm font-black text-slate-800">
                             <CheckCircle2 className="h-5 w-5 text-emerald-600" />
                             성공
                         </div>
 
                         {result.success.length === 0 ? (
-                            <div className="text-sm text-slate-500">성공한 항목이 없음.</div>
+                            <div className="text-sm text-[#8B84A0]">성공한 항목이 없습니다.</div>
                         ) : (
                             <ul className="space-y-2">
                                 {result.success.map((r) => (
                                     <li
                                         key={`${r.documentId}-${r.versionId}-${r.fileId}`}
-                                        className="rounded-2xl border border-slate-200 bg-white p-3"
+                                        className="rounded-2xl border border-[#EEE7FB] bg-[#FCFAFF] p-3"
                                     >
                                         <div className="font-extrabold text-slate-900">{r.title}</div>
-                                        <div className="mt-1 text-xs text-slate-500">
+                                        <div className="mt-1 text-xs text-[#8B84A0]">
                                             doc #{r.documentId} · ver #{r.versionId}
                                         </div>
                                     </li>
                                 ))}
                             </ul>
                         )}
-                    </Card>
+                    </section>
 
-                    <Card>
+                    <section className="rounded-[22px] border border-[#F0E9FC] bg-white p-5 shadow-[0_8px_24px_rgba(100,90,140,0.04)]">
                         <div className="mb-3 flex items-center gap-2 text-sm font-black text-slate-800">
                             <XCircle className="h-5 w-5 text-rose-600" />
                             실패
                         </div>
 
                         {result.failed.length === 0 ? (
-                            <div className="text-sm text-slate-500">실패한 항목이 없음.</div>
+                            <div className="text-sm text-[#8B84A0]">실패한 항목이 없습니다.</div>
                         ) : (
                             <ul className="space-y-2">
                                 {result.failed.map((f, idx) => (
-                                    <li key={`${f.filename}-${idx}`} className="rounded-2xl border border-slate-200 bg-white p-3">
+                                    <li key={`${f.filename}-${idx}`} className="rounded-2xl border border-[#F4D5D9] bg-white p-3">
                                         <div className="font-extrabold text-slate-900">{f.filename}</div>
                                         <div className="mt-1 text-xs font-bold text-rose-600">{f.reason}</div>
                                     </li>
                                 ))}
                             </ul>
                         )}
-                    </Card>
+                    </section>
                 </div>
             )}
 
-            <Card>
-                <div className="space-y-3">
-                    <div className="flex items-center justify-between gap-3">
-                        <div className="text-lg font-black text-slate-900">등록된 문서</div>
-
-                        <button
-                            type="button"
-                            onClick={fetchDocs}
-                            disabled={docLoading}
-                            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
-                        >
-                            <RefreshCw className={`h-4 w-4 ${docLoading ? "animate-spin" : ""}`} />
-                            새로고침
-                        </button>
+            <section className="rounded-[22px] border border-[#F0E9FC] bg-white p-5 shadow-[0_8px_24px_rgba(100,90,140,0.04)]">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                    <div>
+                        <div className="text-base font-black text-slate-900">등록된 문서</div>
+                        <div className="text-xs text-[#8B84A0]">
+                            업로드된 문서를 최신순으로 확인할 수 있어요
+                        </div>
                     </div>
 
-                    {docError && (
-                        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm font-semibold text-rose-700">
-                            {docError}
-                        </div>
-                    )}
-
-                    {docLoading && <div className="text-sm text-slate-500">목록 불러오는 중...</div>}
-
-                    {!docLoading && docPage && docPage.content.length === 0 && (
-                        <div className="text-sm text-slate-500">등록된 문서가 없습니다.</div>
-                    )}
-
-                    {!docLoading && docPage && docPage.content.length > 0 && (
-                        <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white">
-                            <div className="grid grid-cols-12 border-b border-slate-200 bg-slate-50 px-4 py-3 text-xs font-black text-slate-600">
-                                <div className="col-span-5">제목</div>
-                                <div className="col-span-3">상태</div>
-                                <div className="col-span-3">등록일</div>
-                                <div className="col-span-1 text-right">삭제</div>
-                            </div>
-
-                            <ul className="divide-y divide-slate-200">
-                                {docPage.content.map((d) => (
-                                    <li key={d.documentId} className="grid grid-cols-12 items-center gap-2 px-4 py-3">
-                                        <div className="col-span-5 min-w-0">
-                                            <div className="truncate text-sm font-bold text-slate-900">
-                                                {d.title ?? `문서 #${d.documentId}`}
-                                            </div>
-                                            <div className="mt-1 truncate text-xs text-slate-500">
-                                                doc #{d.documentId}
-                                                {typeof d.latestVersionId === "number" ? ` · ver #${d.latestVersionId}` : ""}
-                                                {d.filename ? ` · ${d.filename}` : ""}
-                                            </div>
-                                        </div>
-
-                                        <div className="col-span-3">
-                      <span className="inline-flex rounded-xl border border-slate-200 bg-white px-3 py-1 text-xs font-bold text-slate-700">
-                        {d.status ?? "-"}
-                      </span>
-                                        </div>
-
-                                        <div className="col-span-3 text-xs text-slate-600">{formatDate(d.createdAt)}</div>
-
-                                        <div className="col-span-1 text-right">
-                                            <button
-                                                type="button"
-                                                onClick={() => onDeleteDoc(d.documentId)}
-                                                disabled={docLoading}
-                                                className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-white px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-50 disabled:opacity-60"
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                                삭제
-                                            </button>
-                                        </div>
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                    )}
-
-                    {!docLoading && docPage && docPage.totalPages > 1 && (
-                        <div className="flex items-center justify-between pt-2">
-                            <div className="text-xs text-slate-500">
-                                {docPage.totalElements}개 · {docPage.number + 1}/{docPage.totalPages} 페이지
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setPage((p) => Math.max(0, p - 1))}
-                                    disabled={docLoading || page <= 0}
-                                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
-                                >
-                                    이전
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setPage((p) => (docPage ? Math.min(docPage.totalPages - 1, p + 1) : p + 1))}
-                                    disabled={docLoading || (docPage ? page >= docPage.totalPages - 1 : false)}
-                                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
-                                >
-                                    다음
-                                </button>
-                            </div>
-                        </div>
-                    )}
+                    <button
+                        type="button"
+                        onClick={fetchDocs}
+                        disabled={docLoading}
+                        className="inline-flex items-center gap-2 rounded-xl border border-[#E9DFFB] bg-[#FCFAFF] px-3 py-2 text-xs font-bold text-[#7C63B8] transition hover:bg-[#F7F1FF] disabled:opacity-50"
+                    >
+                        <RefreshCw className={`h-4 w-4 ${docLoading ? "animate-spin" : ""}`} />
+                        새로고침
+                    </button>
                 </div>
-            </Card>
+
+                {docError && (
+                    <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm font-semibold text-rose-700">
+                        {docError}
+                    </div>
+                )}
+
+                {docLoading && <div className="text-sm text-[#8B84A0]">목록 불러오는 중...</div>}
+
+                {!docLoading && docPage && docPage.content.length === 0 && (
+                    <div className="flex h-36 flex-col items-center justify-center rounded-2xl border border-dashed border-[#E9DFFB] bg-gradient-to-b from-[#FFFEFF] to-[#F9F5FF] text-center">
+                        <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-[#F4EEFF] text-[#8A72B8]">
+                            <FileText size={18} />
+                        </div>
+                        <div className="text-sm font-semibold text-slate-700">등록된 문서가 없습니다</div>
+                        <div className="mt-1 text-xs text-[#9A93AD]">문서를 업로드하면 여기에 표시돼요</div>
+                    </div>
+                )}
+
+                {!docLoading && docPage && docPage.content.length > 0 && (
+                    <div className="overflow-hidden rounded-3xl border border-[#EEE7FB] bg-white">
+                        <div className="grid grid-cols-12 border-b border-[#EEE7FB] bg-[#FCFAFF] px-4 py-3 text-xs font-black text-[#8B84A0]">
+                            <div className="col-span-5">제목</div>
+                            <div className="col-span-2">상태</div>
+                            <div className="col-span-4">등록일</div>
+                            <div className="col-span-1 text-right">삭제</div>
+                        </div>
+
+                        <ul className="divide-y divide-[#F1EAFB]">
+                            {docPage.content.map((d) => (
+                                <li key={d.documentId} className="grid grid-cols-12 items-center gap-2 px-4 py-3">
+                                    <div className="col-span-5 min-w-0">
+                                        <div className="truncate text-sm font-bold text-slate-900">
+                                            {d.title ?? `문서 #${d.documentId}`}
+                                        </div>
+                                        <div className="mt-1 truncate text-xs text-[#8B84A0]">
+                                            doc #{d.documentId}
+                                            {typeof d.latestVersionId === "number" ? ` · ver #${d.latestVersionId}` : ""}
+                                            {d.filename ? ` · ${d.filename}` : ""}
+                                        </div>
+                                    </div>
+
+                                    <div className="col-span-2">
+                                        <span className="inline-flex rounded-xl border border-[#EEE7FB] bg-[#FCFAFF] px-3 py-1 text-xs font-bold text-slate-700">
+                                            {d.status ?? "-"}
+                                        </span>
+                                    </div>
+
+                                    <div className="col-span-4 text-xs text-slate-600">
+                                        {formatDate(d.createdAt)}
+                                    </div>
+
+                                    <div className="col-span-1 text-right">
+                                        <button
+                                            type="button"
+                                            onClick={() => onDeleteDoc(d.documentId)}
+                                            disabled={docLoading}
+                                            className="inline-flex items-center gap-1 rounded-xl border border-rose-200 bg-white px-3 py-2 text-xs font-bold text-rose-700 transition hover:bg-rose-50 disabled:opacity-50"
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </button>
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+
+                {!docLoading && docPage && docPage.totalPages > 1 && (
+                    <div className="flex items-center justify-between pt-3">
+                        <div className="text-xs text-[#8B84A0]">
+                            {docPage.totalElements}개 · {docPage.number + 1}/{docPage.totalPages} 페이지
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                                disabled={docLoading || page <= 0}
+                                className="rounded-xl border border-[#E9DFFB] bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:bg-[#FCFAFF] disabled:opacity-50"
+                            >
+                                이전
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setPage((p) => (docPage ? Math.min(docPage.totalPages - 1, p + 1) : p + 1))
+                                }
+                                disabled={docLoading || (docPage ? page >= docPage.totalPages - 1 : false)}
+                                className="rounded-xl border border-[#E9DFFB] bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:bg-[#FCFAFF] disabled:opacity-50"
+                            >
+                                다음
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </section>
         </div>
     );
 }

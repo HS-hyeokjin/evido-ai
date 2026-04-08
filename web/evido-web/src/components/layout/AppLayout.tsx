@@ -13,10 +13,11 @@ export default function AppLayout() {
     }
 
     return (
-        <div className="flex h-screen">
+        <div className="flex h-screen overflow-hidden bg-white">
             <Sidebar />
-            <main className="flex-1 bg-white px-6 py-6">
-                <div className="mx-auto w-full max-w-6xl">
+
+            <main className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-6">
+                <div className="mx-auto w-full max-w-7xl">
                     <Outlet />
                 </div>
             </main>

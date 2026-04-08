@@ -112,7 +112,6 @@ export default function DashboardPage() {
                 </div>
             </Card>
 
-            {/* RECENT ACTIVITY */}
             <Card>
                 <div className="flex items-center gap-2 font-black text-slate-800">
                     <Clock className="h-4 w-4 text-slate-500"/>
@@ -145,7 +144,6 @@ export default function DashboardPage() {
                 </div>
             </Card>
 
-            {/* RECENT CHATS */}
             <Card>
                 <div className="font-black text-slate-800">
                     최근 대화

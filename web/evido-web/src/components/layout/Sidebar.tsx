@@ -14,23 +14,24 @@ import {
     Trash2,
     Pencil
 } from "lucide-react";
-import type {Workspace} from "../../types/Workspace.ts";
-import type {Conversation} from "../../types/Conversation.ts";
+import type { Workspace } from "../../types/Workspace.ts";
+import type { Conversation } from "../../types/Conversation.ts";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
 export default function Sidebar() {
     const navigate = useNavigate();
-    const { workspaceId } = useParams();
+    const { workspaceId, conversationId } = useParams();
     const { user, loading } = useAuth();
+
     const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [wsOpen, setWsOpen] = useState(true);
     const [menuOpenId, setMenuOpenId] = useState<number | null>(null);
     const menuRef = useRef<HTMLDivElement | null>(null);
+
     const isUser = user?.role === "ROLE_USER";
     const isGuest = user?.role === "ROLE_GUEST";
-    const canUpload = isUser || isGuest;
 
     const fetchWorkspaces = async () => {
         const res = await api.get("/api/workspaces");
@@ -47,8 +48,10 @@ export default function Sidebar() {
     }, []);
 
     useEffect(() => {
-        if (workspaceId) fetchConversations(workspaceId);
-    }, [workspaceId]);
+        if (workspaceId) {
+            fetchConversations(workspaceId);
+        }
+    }, [workspaceId, conversationId]);
 
     useEffect(() => {
         const handleClick = (e: any) => {
@@ -75,7 +78,7 @@ export default function Sidebar() {
 
             <div
                 onClick={() => navigate("/")}
-                className="flex items-center gap-3 mb-6 cursor-pointer group"
+                className="flex items-center gap-3 mb-4 cursor-pointer group"
             >
                 <img src={Logo} className="h-11 w-11 transition group-hover:scale-105"/>
 
@@ -87,10 +90,12 @@ export default function Sidebar() {
                         <span className="text-sm text-slate-400">AI</span>
                     </div>
                     <div className="text-xs text-slate-400">
-                        Knowledge Engine
+                        문서 기반 지식 엔진
                     </div>
                 </div>
             </div>
+
+            <div className="mb-3 border-t border-slate-200" />
 
             <p className="px-3 text-[11px] font-bold text-slate-400 mb-2 tracking-wider">
                 MAIN
@@ -108,7 +113,7 @@ export default function Sidebar() {
                 <LayoutDashboard size={16}/> 대시보드
             </NavLink>
 
-            <div className="mt-6">
+            <div className="mt-3">
                 <button
                     onClick={() => setWsOpen(!wsOpen)}
                     className="flex items-center justify-between w-full px-3 py-2 text-[11px] font-bold text-slate-400"
