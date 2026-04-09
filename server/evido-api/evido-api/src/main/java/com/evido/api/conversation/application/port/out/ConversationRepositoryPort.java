@@ -13,4 +13,6 @@ public interface ConversationRepositoryPort {
 
     Optional<Conversation> findById(Long id);
 
+    Conversation save(Conversation conversation);
+
 }

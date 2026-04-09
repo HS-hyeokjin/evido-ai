@@ -5,6 +5,7 @@ import com.evido.api.conversation.api.dto.response.ConversationResponse;
 import com.evido.api.conversation.api.mapper.MessageResponseMapper;
 import com.evido.api.conversation.api.mapper.SendMessageResponseMapper;
 import com.evido.api.conversation.application.port.in.command.CreateConversationCommand;
+import com.evido.api.conversation.application.port.in.command.SendFirstMessageCommand;
 import com.evido.api.conversation.application.port.in.command.SendMessageCommand;
 import com.evido.api.conversation.application.port.in.query.GetConversationsQuery;
 import com.evido.api.conversation.api.dto.request.MessageRequest;
@@ -88,6 +89,24 @@ public class ConversationController {
         );
 
         return messageUseCase.sendMessage(command)
+                .map(SendMessageResponseMapper::from);
+    }
+
+    @PostMapping("/workspaces/{workspaceId}/first-message")
+    public Mono<SendMessageResponse> sendFirstMessage(
+            @PathVariable Long workspaceId,
+            @RequestBody MessageRequest request,
+            Authentication authentication
+    ) {
+        String userId = currentUserProvider.getUserId(authentication);
+
+        var command = new SendFirstMessageCommand(
+                workspaceId,
+                userId,
+                request.content()
+        );
+
+        return messageUseCase.sendFirstMessage(command)
                 .map(SendMessageResponseMapper::from);
     }
 }

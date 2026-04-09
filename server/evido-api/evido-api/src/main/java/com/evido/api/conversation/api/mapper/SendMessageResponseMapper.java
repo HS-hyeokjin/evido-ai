@@ -5,10 +5,13 @@ import com.evido.api.conversation.application.dto.SendMessageResult;
 
 public class SendMessageResponseMapper {
 
+    private SendMessageResponseMapper() {
+    }
+
     public static SendMessageResponse from(SendMessageResult result) {
         return new SendMessageResponse(
-                result.messages()
-                        .stream()
+                result.conversationId(),
+                result.messages().stream()
                         .map(MessageResponseMapper::from)
                         .toList()
         );

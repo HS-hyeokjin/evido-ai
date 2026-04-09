@@ -40,4 +40,15 @@ public class ConversationRepositoryAdapter implements ConversationRepositoryPort
         return conversationJpaRepository.findById(id)
                 .map(ConversationMapper::toDomain);
     }
+
+    @Override
+    public Conversation save(Conversation conversation) {
+        ConversationEntity entity = new ConversationEntity(
+                conversation.getWorkspaceId(),
+                conversation.getTitle()
+        );
+
+        ConversationEntity saved = conversationJpaRepository.save(entity);
+        return ConversationMapper.toDomain(saved);
+    }
 }

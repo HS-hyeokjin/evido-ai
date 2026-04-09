@@ -3,6 +3,7 @@ package com.evido.api.conversation.application.service;
 import com.evido.api.conversation.application.dto.MessageResult;
 import com.evido.api.conversation.application.dto.SendMessageResult;
 import com.evido.api.conversation.application.port.in.MessageUseCase;
+import com.evido.api.conversation.application.port.in.command.SendFirstMessageCommand;
 import com.evido.api.conversation.application.port.in.command.SendMessageCommand;
 import com.evido.api.conversation.application.port.in.query.GetMessagesQuery;
 import com.evido.api.conversation.application.port.out.ConversationRepositoryPort;
@@ -34,7 +35,7 @@ public class MessageService implements MessageUseCase {
         validateAccess(conversation.getWorkspaceId(), command.userId());
 
         Message userMessage = saveUserMessage(
-                command.conversationId(),
+                conversation.getId(),
                 command.content()
         );
 
@@ -43,11 +44,12 @@ public class MessageService implements MessageUseCase {
         ).map(result -> {
 
             Message assistantMessage = saveAssistantMessage(
-                    command.conversationId(),
+                    conversation.getId(),
                     result.answer()
             );
 
             return new SendMessageResult(
+                    conversation.getId(),
                     List.of(
                             toResult(userMessage),
                             toResult(assistantMessage)
@@ -66,6 +68,41 @@ public class MessageService implements MessageUseCase {
                 .stream()
                 .map(this::toResult)
                 .toList();
+    }
+
+    @Override
+    public Mono<SendMessageResult> sendFirstMessage(SendFirstMessageCommand command) {
+
+        validateAccess(command.workspaceId(), command.userId());
+
+        String title = generateTitle(command.content());
+
+        Conversation conversation = conversationRepositoryPort.save(
+                Conversation.create(command.workspaceId(), title)
+        );
+
+        Message userMessage = saveUserMessage(
+                conversation.getId(),
+                command.content()
+        );
+
+        return qaUseCase.answer(
+                new AskCommand(command.workspaceId(), command.content(), 5)
+        ).map(result -> {
+
+            Message assistantMessage = saveAssistantMessage(
+                    conversation.getId(),
+                    result.answer()
+            );
+
+            return new SendMessageResult(
+                    conversation.getId(),
+                    List.of(
+                            toResult(userMessage),
+                            toResult(assistantMessage)
+                    )
+            );
+        });
     }
 
     private Conversation getConversation(Long conversationId) {
@@ -98,5 +135,20 @@ public class MessageService implements MessageUseCase {
                 message.getContent(),
                 message.getCreatedAt()
         );
+    }
+
+    private String generateTitle(String content) {
+        if (content == null || content.isBlank()) {
+            return "새 대화";
+        }
+
+        String normalized = content.replaceAll("\\s+", " ").trim();
+
+        int maxLength = 20;
+        if (normalized.length() <= maxLength) {
+            return normalized;
+        }
+
+        return normalized.substring(0, maxLength).trim() + "...";
     }
 }
