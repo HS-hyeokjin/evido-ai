@@ -29,4 +29,8 @@ public class WorkspaceEntity {
         this.name = name;
         this.createdAt = LocalDateTime.now();
     }
+
+    public void changeName(String name) {
+        this.name = name;
+    }
 }

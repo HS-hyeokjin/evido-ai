@@ -1,7 +1,9 @@
 package com.evido.api.workspace.infrastructure.persistence.mapper;
 
-import com.evido.api.workspace.domain.*;
-import com.evido.api.workspace.infrastructure.persistence.entity.*;
+import com.evido.api.workspace.domain.Workspace;
+import com.evido.api.workspace.domain.WorkspaceMember;
+import com.evido.api.workspace.infrastructure.persistence.entity.WorkspaceEntity;
+import com.evido.api.workspace.infrastructure.persistence.entity.WorkspaceMemberEntity;
 
 import java.util.List;
 
@@ -32,11 +34,14 @@ public class WorkspaceMapper {
                 .toList();
     }
 
+    public static Workspace toDomain(WorkspaceEntity entity) {
+        return toDomain(entity, entity.getMembers());
+    }
+
     public static Workspace toDomain(
             WorkspaceEntity entity,
             List<WorkspaceMemberEntity> members
     ) {
-
         Workspace workspace = new Workspace(
                 entity.getId(),
                 entity.getName(),

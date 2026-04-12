@@ -44,4 +44,16 @@ public class Workspace {
                 .anyMatch(m -> m.getUserId().equals(userId));
     }
 
+    public boolean isOwner(String userId) {
+        return members.stream()
+                .anyMatch(m -> m.getUserId().equals(userId) && m.isOwner());
+    }
+
+    public void rename(String newName) {
+        if (newName == null || newName.isBlank()) {
+            throw new IllegalArgumentException("워크스페이스 이름은 비어 있을 수 없습니다.");
+        }
+
+        this.name = newName.trim();
+    }
 }

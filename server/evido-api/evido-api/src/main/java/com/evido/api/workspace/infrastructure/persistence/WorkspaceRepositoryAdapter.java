@@ -7,6 +7,7 @@ import com.evido.api.workspace.infrastructure.persistence.entity.WorkspaceMember
 import com.evido.api.workspace.infrastructure.persistence.mapper.WorkspaceMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -71,5 +72,28 @@ public class WorkspaceRepositoryAdapter implements WorkspaceRepositoryPort {
                     return WorkspaceMapper.toDomain(workspace, members);
                 })
                 .toList();
+    }
+
+    @Override
+    public Optional<Workspace> findByIdWithMembers(Long workspaceId) {
+        return workspaceJpaRepository.findByIdWithMembers(workspaceId)
+                .map(WorkspaceMapper::toDomain);
+    }
+
+    @Override
+    @Transactional
+    public Workspace updateName(Long workspaceId, String name) {
+        WorkspaceEntity entity = workspaceJpaRepository.findById(workspaceId)
+                .orElseThrow(() -> new IllegalArgumentException("워크스페이스를 찾을 수 없습니다."));
+
+        entity.changeName(name);
+
+        return WorkspaceMapper.toDomain(entity);
+    }
+
+    @Override
+    @Transactional
+    public void deleteById(Long workspaceId) {
+        workspaceJpaRepository.deleteById(workspaceId);
     }
 }

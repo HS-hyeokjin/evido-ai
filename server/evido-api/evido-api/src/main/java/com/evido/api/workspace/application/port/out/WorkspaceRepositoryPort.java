@@ -13,4 +13,10 @@ public interface WorkspaceRepositoryPort {
     Optional<Workspace> findById(Long workspaceId);
 
     List<Workspace> findAllByUserId(String userId);
+
+    Optional<Workspace> findByIdWithMembers(Long workspaceId);
+
+    Workspace updateName(Long workspaceId, String name);
+
+    void deleteById(Long workspaceId);
 }

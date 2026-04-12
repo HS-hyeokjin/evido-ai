@@ -7,8 +7,7 @@ public class WorkspaceInitResponseMapper {
 
     public static WorkspaceInitResponse from(WorkspaceInitResult result) {
         return new WorkspaceInitResponse(
-                result.workspaceId(),
-                result.conversationId()
+                result.workspaceId()
         );
     }
 }

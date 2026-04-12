@@ -3,17 +3,21 @@ package com.evido.api.workspace.application.service;
 import com.evido.api.workspace.application.dto.WorkspaceResult;
 import com.evido.api.workspace.application.port.in.WorkspaceUseCase;
 import com.evido.api.workspace.application.port.in.command.WorkspaceCreateCommand;
+import com.evido.api.workspace.application.port.in.command.WorkspaceDeleteCommand;
+import com.evido.api.workspace.application.port.in.command.WorkspaceUpdateCommand;
 import com.evido.api.workspace.application.port.out.WorkspaceRepositoryPort;
 import com.evido.api.workspace.domain.Workspace;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class WorkspaceService implements WorkspaceUseCase {
 
-    private final WorkspaceRepositoryPort workspaceRepository;
+    private final WorkspaceRepositoryPort workspaceRepositoryPort;
 
     @Override
     public WorkspaceResult create(WorkspaceCreateCommand command) {
@@ -23,7 +27,7 @@ public class WorkspaceService implements WorkspaceUseCase {
                 command.userId()
         );
 
-        Workspace saved = workspaceRepository.save(workspace);
+        Workspace saved = workspaceRepositoryPort.save(workspace);
 
         return new WorkspaceResult(
                 saved.getId(),
@@ -34,7 +38,7 @@ public class WorkspaceService implements WorkspaceUseCase {
 
     @Override
     public List<WorkspaceResult> findAll(String userId) {
-        return workspaceRepository.findAllByUserId(userId)
+        return workspaceRepositoryPort.findAllByUserId(userId)
                 .stream()
                 .map(w -> new WorkspaceResult(
                         w.getId(),
@@ -47,7 +51,7 @@ public class WorkspaceService implements WorkspaceUseCase {
     @Override
     public WorkspaceResult findById(Long workspaceId, String userId) {
 
-        Workspace workspace = workspaceRepository.findById(workspaceId)
+        Workspace workspace = workspaceRepositoryPort.findById(workspaceId)
                 .orElseThrow(() -> new RuntimeException("워크스페이스 없음"));
 
         if (!workspace.isMember(userId)) {
@@ -59,5 +63,46 @@ public class WorkspaceService implements WorkspaceUseCase {
                 workspace.getName(),
                 workspace.getCreatedAt()
         );
+    }
+    @Override
+    @Transactional
+    public WorkspaceResult update(WorkspaceUpdateCommand command) {
+        Workspace workspace = workspaceRepositoryPort.findByIdWithMembers(command.workspaceId())
+                .orElseThrow(() -> new IllegalArgumentException("워크스페이스를 찾을 수 없습니다."));
+
+        validateOwner(workspace, command.userId());
+
+        workspace.rename(command.name());
+
+        Workspace updatedWorkspace = workspaceRepositoryPort.updateName(
+                workspace.getId(),
+                workspace.getName()
+        );
+
+        return WorkspaceResult.from(updatedWorkspace);
+    }
+
+    @Override
+    @Transactional
+    public void delete(WorkspaceDeleteCommand command) {
+        Workspace workspace = workspaceRepositoryPort.findByIdWithMembers(command.workspaceId())
+                .orElseThrow(() -> new IllegalArgumentException("워크스페이스를 찾을 수 없습니다."));
+
+        validateOwner(workspace, command.userId());
+
+        workspaceRepositoryPort.deleteById(workspace.getId());
+    }
+
+    private void validateOwner(Workspace workspace, String userId) {
+        if (!workspace.isOwner(userId)) {
+            throw new IllegalStateException("워크스페이스 소유자만 수정/삭제할 수 있습니다.");
+        }
+    }
+
+    private String normalizeCreateName(String name) {
+        if (name == null || name.isBlank()) {
+            return "새 워크스페이스";
+        }
+        return name.trim();
     }
 }

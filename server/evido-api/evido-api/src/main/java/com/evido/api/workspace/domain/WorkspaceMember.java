@@ -37,4 +37,8 @@ public class WorkspaceMember {
     public static WorkspaceMember createMember(String userId, Long workspaceId) {
         return new WorkspaceMember(userId, WorkspaceRole.MEMBER);
     }
+
+    public boolean isOwner() {
+        return this.role == WorkspaceRole.OWNER;
+    }
 }

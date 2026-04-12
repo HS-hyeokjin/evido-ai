@@ -83,9 +83,6 @@ public class DocumentController {
                 });
     }
 
-    /**
-     * presigned url 자체가 필요한 경우
-     */
     @GetMapping("/{documentId}/download")
     public Mono<ResponseEntity<String>> getDownloadUrl(
             @PathVariable Long documentId,
