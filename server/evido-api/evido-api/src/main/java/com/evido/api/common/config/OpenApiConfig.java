@@ -17,7 +17,7 @@ public class OpenApiConfig {
                 .info(new Info()
                         .title("EVIDO API")
                         .version("v1.0.0")
-                        .description("EVIDO AI SaaS Backend API Documentation")
+                        .description("Evido API 문서")
                 )
                 .addSecurityItem(new SecurityRequirement().addList("bearerAuth"))
                 .components(new Components()
