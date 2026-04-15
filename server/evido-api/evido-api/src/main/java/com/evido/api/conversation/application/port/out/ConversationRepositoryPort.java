@@ -11,8 +11,12 @@ public interface ConversationRepositoryPort {
 
     Conversation createDefaultConversation(Long workspaceId);
 
-    Optional<Conversation> findById(Long id);
-
     Conversation save(Conversation conversation);
+
+    Optional<Conversation> findById(Long conversationId);
+
+    Conversation updateTitle(Long conversationId, String title);
+
+    void deleteById(Long conversationId);
 
 }

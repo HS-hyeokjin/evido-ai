@@ -15,4 +15,11 @@ public class ConversationMapper {
                 entity.getCreatedAt()
         );
     }
+
+    public static ConversationEntity toEntity(Conversation domain) {
+        return new ConversationEntity(
+                domain.getWorkspaceId(),
+                domain.getTitle()
+        );
+    }
 }

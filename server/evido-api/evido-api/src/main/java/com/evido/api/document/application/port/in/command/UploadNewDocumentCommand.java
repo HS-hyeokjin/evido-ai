@@ -4,7 +4,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 public record UploadNewDocumentCommand(
         Long workspaceId,
-        Long userId,
+        String userId,
         String title,
         MultipartFile file
 ) {}

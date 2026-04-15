@@ -1,5 +1,6 @@
 package com.evido.api.document.api.controller;
 
+import com.evido.api.auth.infrastructure.security.CurrentUserProvider;
 import com.evido.api.document.api.dto.request.*;
 import com.evido.api.document.api.dto.response.*;
 import com.evido.api.document.api.mapper.DocumentResponseMapper;
@@ -13,6 +14,7 @@ import com.evido.api.document.application.port.in.query.ListDocumentsQuery;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.*;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 
@@ -21,44 +23,44 @@ import java.nio.charset.StandardCharsets;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/documents")
+@RequestMapping("/api/workspaces/{workspaceId}/documents")
 public class DocumentController {
 
     private final DocumentUseCase documentUseCase;
-
-    // TODO
-    private Long workspaceId() {
-        return 1L;
-    }
-
-    private Long userId() {
-        return 1L;
-    }
+    private final CurrentUserProvider currentUserProvider;
 
     @GetMapping(value = "/{documentId}/content", produces = MediaType.TEXT_PLAIN_VALUE)
     public Mono<ResponseEntity<String>> getTextContent(
+            @PathVariable Long workspaceId,
             @PathVariable Long documentId,
-            @ModelAttribute DocumentContentRequest req
+            @ModelAttribute DocumentContentRequest req,
+            Authentication authentication
     ) {
-        var cmd = new GetDocumentFileQuery(
-                workspaceId(),
-                userId(),
+        String userId = currentUserProvider.getUserId(authentication);
+
+        var query = new GetDocumentFileQuery(
+                workspaceId,
+                userId,
                 documentId,
                 req.versionId()
         );
 
-        return documentUseCase.getDocumentTextContent(cmd)
+        return documentUseCase.getDocumentTextContent(query)
                 .map(this::textResponse);
     }
 
     @GetMapping("/{documentId}/file")
     public Mono<ResponseEntity<?>> getFile(
+            @PathVariable Long workspaceId,
             @PathVariable Long documentId,
-            @ModelAttribute DownloadDocumentRequest req
+            @ModelAttribute DownloadDocumentRequest req,
+            Authentication authentication
     ) {
+        String userId = currentUserProvider.getUserId(authentication);
+
         var query = new GetDocumentFileQuery(
-                workspaceId(),
-                userId(),
+                workspaceId,
+                userId,
                 documentId,
                 req.versionId()
         );
@@ -85,12 +87,16 @@ public class DocumentController {
 
     @GetMapping("/{documentId}/download")
     public Mono<ResponseEntity<String>> getDownloadUrl(
+            @PathVariable Long workspaceId,
             @PathVariable Long documentId,
-            @ModelAttribute DownloadDocumentRequest req
+            @ModelAttribute DownloadDocumentRequest req,
+            Authentication authentication
     ) {
+        String userId = currentUserProvider.getUserId(authentication);
+
         var query = new GetDocumentFileQuery(
-                workspaceId(),
-                userId(),
+                workspaceId,
+                userId,
                 documentId,
                 req.versionId()
         );
@@ -100,10 +106,16 @@ public class DocumentController {
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public Mono<DocumentCreateResponse> upload(@ModelAttribute UploadDocumentRequest req) {
+    public Mono<DocumentCreateResponse> upload(
+            @PathVariable Long workspaceId,
+            @ModelAttribute UploadDocumentRequest req,
+            Authentication authentication
+    ) {
+        String userId = currentUserProvider.getUserId(authentication);
+
         var cmd = new UploadNewDocumentCommand(
-                workspaceId(),
-                userId(),
+                workspaceId,
+                userId,
                 req.title(),
                 req.file()
         );
@@ -114,12 +126,16 @@ public class DocumentController {
 
     @PostMapping(value = "/{documentId}/versions", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public Mono<DocumentCreateResponse> uploadVersion(
+            @PathVariable Long workspaceId,
             @PathVariable Long documentId,
-            @ModelAttribute UploadDocumentVersionRequest req
+            @ModelAttribute UploadDocumentVersionRequest req,
+            Authentication authentication
     ) {
+        String userId = currentUserProvider.getUserId(authentication);
+
         var cmd = new UploadNewVersionCommand(
-                workspaceId(),
-                userId(),
+                workspaceId,
+                userId,
                 documentId,
                 req.file()
         );
@@ -129,10 +145,16 @@ public class DocumentController {
     }
 
     @PostMapping(value = "/bulk", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public Mono<BulkUploadResponse> uploadBulk(@ModelAttribute BulkUploadRequest req) {
+    public Mono<BulkUploadResponse> uploadBulk(
+            @PathVariable Long workspaceId,
+            @ModelAttribute BulkUploadRequest req,
+            Authentication authentication
+    ) {
+        String userId = currentUserProvider.getUserId(authentication);
+
         var cmd = new BulkUploadCommand(
-                workspaceId(),
-                userId(),
+                workspaceId,
+                userId,
                 req.titlePrefix(),
                 req.files()
         );
@@ -142,27 +164,38 @@ public class DocumentController {
     }
 
     @GetMapping
-    public Mono<PageResponse<DocumentListItemResponse>> list(@ModelAttribute ListDocumentsRequest req) {
+    public Mono<PageResponse<DocumentListItemResponse>> list(
+            @PathVariable Long workspaceId,
+            @ModelAttribute ListDocumentsRequest req,
+            Authentication authentication
+    ) {
+        String userId = currentUserProvider.getUserId(authentication);
         Sort sort = parseSort(req.sortOrDefault());
 
-        var cmd = new ListDocumentsQuery(
-                workspaceId(),
-                userId(),
+        var query = new ListDocumentsQuery(
+                workspaceId,
+                userId,
                 req.q(),
                 req.pageOrDefault(),
                 req.sizeOrDefault(),
                 sort
         );
 
-        return documentUseCase.listDocuments(cmd)
+        return documentUseCase.listDocuments(query)
                 .map(DocumentResponseMapper::from);
     }
 
     @DeleteMapping("/{documentId}")
-    public Mono<Void> delete(@PathVariable Long documentId) {
+    public Mono<Void> delete(
+            @PathVariable Long workspaceId,
+            @PathVariable Long documentId,
+            Authentication authentication
+    ) {
+        String userId = currentUserProvider.getUserId(authentication);
+
         var cmd = new DeleteDocumentCommand(
-                workspaceId(),
-                userId(),
+                workspaceId,
+                userId,
                 documentId
         );
 

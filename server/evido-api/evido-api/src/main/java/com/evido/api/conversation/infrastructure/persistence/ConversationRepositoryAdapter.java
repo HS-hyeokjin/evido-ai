@@ -6,6 +6,7 @@ import com.evido.api.conversation.infrastructure.persistence.entity.Conversation
 import com.evido.api.conversation.infrastructure.persistence.mapper.ConversationMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -18,19 +19,16 @@ public class ConversationRepositoryAdapter implements ConversationRepositoryPort
 
     @Override
     public List<Conversation> findByWorkspaceId(Long workspaceId) {
-        return conversationJpaRepository.findByWorkspaceId(workspaceId)
+        return conversationJpaRepository.findByWorkspaceIdOrderByCreatedAtDesc(workspaceId)
                 .stream()
                 .map(ConversationMapper::toDomain)
                 .toList();
     }
 
     @Override
+    @Transactional
     public Conversation createDefaultConversation(Long workspaceId) {
-        ConversationEntity entity = new ConversationEntity(
-                workspaceId,
-                "제목 없음"
-        );
-
+        ConversationEntity entity = new ConversationEntity(workspaceId, "새 대화");
         ConversationEntity saved = conversationJpaRepository.save(entity);
         return ConversationMapper.toDomain(saved);
     }
@@ -39,6 +37,23 @@ public class ConversationRepositoryAdapter implements ConversationRepositoryPort
     public Optional<Conversation> findById(Long id) {
         return conversationJpaRepository.findById(id)
                 .map(ConversationMapper::toDomain);
+    }
+
+    @Override
+    @Transactional
+    public Conversation updateTitle(Long conversationId, String title) {
+        ConversationEntity entity = conversationJpaRepository.findById(conversationId)
+                .orElseThrow(() -> new IllegalArgumentException("대화를 찾을 수 없습니다."));
+
+        entity.changeTitle(title);
+
+        return ConversationMapper.toDomain(entity);
+    }
+
+    @Override
+    @Transactional
+    public void deleteById(Long conversationId) {
+        conversationJpaRepository.deleteById(conversationId);
     }
 
     @Override

@@ -22,7 +22,7 @@ public class Document {
     private Long workspaceId;
 
     @Column(name = "owner_user_id", nullable = false)
-    private Long ownerUserId;
+    private String ownerUserId;
 
     @Column(name = "title", nullable = false, length = 255)
     private String title;

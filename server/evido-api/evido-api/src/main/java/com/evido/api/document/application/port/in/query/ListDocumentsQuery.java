@@ -4,7 +4,7 @@ import org.springframework.data.domain.Sort;
 
 public record ListDocumentsQuery(
         Long workspaceId,
-        Long userId,
+        String userId,
         String q,
         int page,
         int size,

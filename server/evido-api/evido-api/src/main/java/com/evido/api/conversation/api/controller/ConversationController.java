@@ -1,19 +1,22 @@
 package com.evido.api.conversation.api.controller;
 
 import com.evido.api.auth.infrastructure.security.CurrentUserProvider;
-import com.evido.api.conversation.api.dto.response.ConversationResponse;
-import com.evido.api.conversation.api.mapper.MessageResponseMapper;
-import com.evido.api.conversation.api.mapper.SendMessageResponseMapper;
-import com.evido.api.conversation.application.port.in.command.CreateConversationCommand;
-import com.evido.api.conversation.application.port.in.command.SendFirstMessageCommand;
-import com.evido.api.conversation.application.port.in.command.SendMessageCommand;
-import com.evido.api.conversation.application.port.in.query.GetConversationsQuery;
+import com.evido.api.conversation.api.dto.request.ConversationUpdateRequest;
 import com.evido.api.conversation.api.dto.request.MessageRequest;
+import com.evido.api.conversation.api.dto.response.ConversationResponse;
 import com.evido.api.conversation.api.dto.response.MessageResponse;
 import com.evido.api.conversation.api.dto.response.SendMessageResponse;
 import com.evido.api.conversation.api.mapper.ConversationResponseMapper;
+import com.evido.api.conversation.api.mapper.MessageResponseMapper;
+import com.evido.api.conversation.api.mapper.SendMessageResponseMapper;
 import com.evido.api.conversation.application.port.in.ConversationUseCase;
 import com.evido.api.conversation.application.port.in.MessageUseCase;
+import com.evido.api.conversation.application.port.in.command.CreateConversationCommand;
+import com.evido.api.conversation.application.port.in.command.DeleteConversationCommand;
+import com.evido.api.conversation.application.port.in.command.SendFirstMessageCommand;
+import com.evido.api.conversation.application.port.in.command.SendMessageCommand;
+import com.evido.api.conversation.application.port.in.command.UpdateConversationCommand;
+import com.evido.api.conversation.application.port.in.query.GetConversationsQuery;
 import com.evido.api.conversation.application.port.in.query.GetMessagesQuery;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
@@ -32,8 +35,10 @@ public class ConversationController {
     private final CurrentUserProvider currentUserProvider;
 
     @GetMapping("/{workspaceId}/conversations")
-    public List<ConversationResponse> getConversation(@PathVariable Long workspaceId, Authentication authentication) {
-
+    public List<ConversationResponse> getConversation(
+            @PathVariable Long workspaceId,
+            Authentication authentication
+    ) {
         String userId = currentUserProvider.getUserId(authentication);
 
         var query = new GetConversationsQuery(workspaceId, userId);
@@ -45,8 +50,10 @@ public class ConversationController {
     }
 
     @PostMapping("/{workspaceId}/conversations")
-    public ConversationResponse createConversation(@PathVariable Long workspaceId, Authentication authentication) {
-
+    public ConversationResponse createConversation(
+            @PathVariable Long workspaceId,
+            Authentication authentication
+    ) {
         String userId = currentUserProvider.getUserId(authentication);
 
         var command = new CreateConversationCommand(
@@ -57,6 +64,40 @@ public class ConversationController {
         return ConversationResponseMapper.from(
                 conversationUseCase.createConversation(command)
         );
+    }
+
+    @PatchMapping("/{conversationId}")
+    public ConversationResponse updateConversation(
+            @PathVariable Long conversationId,
+            @RequestBody ConversationUpdateRequest request,
+            Authentication authentication
+    ) {
+        String userId = currentUserProvider.getUserId(authentication);
+
+        var command = new UpdateConversationCommand(
+                conversationId,
+                userId,
+                request.title()
+        );
+
+        return ConversationResponseMapper.from(
+                conversationUseCase.updateConversation(command)
+        );
+    }
+
+    @DeleteMapping("/{conversationId}")
+    public void deleteConversation(
+            @PathVariable Long conversationId,
+            Authentication authentication
+    ) {
+        String userId = currentUserProvider.getUserId(authentication);
+
+        var command = new DeleteConversationCommand(
+                conversationId,
+                userId
+        );
+
+        conversationUseCase.deleteConversation(command);
     }
 
     @GetMapping("/{conversationId}/messages")

@@ -31,4 +31,13 @@ public class Conversation {
     public static Conversation create(Long workspaceId, String title) {
         return new Conversation(workspaceId, title);
     }
+
+    public void rename(String newTitle) {
+        if (newTitle == null || newTitle.isBlank()) {
+            this.title = "새 대화";
+            return;
+        }
+
+        this.title = newTitle.trim();
+    }
 }

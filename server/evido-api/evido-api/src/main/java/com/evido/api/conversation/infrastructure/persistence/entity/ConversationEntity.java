@@ -27,4 +27,8 @@ public class ConversationEntity {
         this.title = title;
         this.createdAt = LocalDateTime.now();
     }
+
+    public void changeTitle(String title) {
+        this.title = title;
+    }
 }
