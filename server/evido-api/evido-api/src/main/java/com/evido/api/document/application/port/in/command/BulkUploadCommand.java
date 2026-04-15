@@ -5,7 +5,7 @@ import java.util.List;
 
 public record BulkUploadCommand(
         Long workspaceId,
-        Long userId,
+        String userId,
         String titlePrefix,
         List<MultipartFile> files
 ) {}

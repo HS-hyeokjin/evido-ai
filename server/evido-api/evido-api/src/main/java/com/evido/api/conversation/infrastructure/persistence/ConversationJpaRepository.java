@@ -7,6 +7,6 @@ import java.util.List;
 
 public interface ConversationJpaRepository extends JpaRepository<ConversationEntity, Long> {
 
-    List<ConversationEntity> findByWorkspaceId(Long workspaceId);
+    List<ConversationEntity> findByWorkspaceIdOrderByCreatedAtDesc(Long workspaceId);
 
 }
