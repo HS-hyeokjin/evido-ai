@@ -2,6 +2,8 @@ import re
 import logging
 from typing import List, Dict
 
+from app.services.normalizer import normalize_text
+
 logger = logging.getLogger(__name__)
 
 try:
@@ -17,18 +19,6 @@ except Exception:
         return len(s.split())
 
 
-def normalize_text_txt(raw: str) -> str:
-    if not raw:
-        return ""
-    t = raw.replace("\r\n", "\n").replace("\r", "\n")
-
-    t = re.sub(r"[ \t]+", " ", t)
-
-    t = re.sub(r"\n{3,}", "\n\n", t)
-
-    return t.strip()
-
-
 _HEADER_LINE_RE = re.compile(
     r"""(?mx)
     ^\s*(?:
@@ -40,39 +30,52 @@ _HEADER_LINE_RE = re.compile(
         |
         \[[^\]]{1,30}\]\s*
     )
-    """,
+    """
 )
 
 _HEADER_INLINE_RE = re.compile(r"\s(?=(\d{1,3}(?:\.\d{1,3}){0,3})\.\s+)")
+_SENT_SPLIT = re.compile(r"(?:(?<=[.!?])\s+|(?<=다\.)\s+)")
 
 
-def split_sections_txt(text: str) -> List[str]:
+def split_sections(text: str, source_type: str) -> List[str]:
     t = text.strip()
     if not t:
         return []
 
+    if source_type in ("txt", "docx"):
+        return split_sections_by_header(t)
+
+    if source_type in ("pdf", "image"):
+        return split_sections_by_paragraph(t)
+
+    return split_sections_by_paragraph(t)
+
+
+def split_sections_by_header(text: str) -> List[str]:
     parts = re.split(
         r"(?m)(?=^\s*(?:제\s*\d+\s*(?:장|절|항|조)|\d{1,3}(?:\.\d{1,3}){0,3}\.\s+|\d{1,3}\)\s+|\[[^\]]{1,30}\]\s*))",
-        t
+        text
     )
     parts = [p.strip() for p in parts if p and p.strip()]
 
     if len(parts) <= 2:
-        parts = re.split(_HEADER_INLINE_RE, t)
+        parts = re.split(_HEADER_INLINE_RE, text)
         parts = [p.strip() for p in parts if p and p.strip()]
 
     if len(parts) <= 1:
-        parts = re.split(r"\n\s*\n", t)
-        parts = [p.strip() for p in parts if p.strip()]
+        parts = split_sections_by_paragraph(text)
 
     return parts
 
 
-_SENT_SPLIT = re.compile(r"(?:(?<=[.!?])\s+|(?<=다\.)\s+)")
+def split_sections_by_paragraph(text: str) -> List[str]:
+    parts = re.split(r"\n\s*\n", text)
+    return [p.strip() for p in parts if p.strip()]
 
 
-def split_units_txt(section: str) -> List[str]:
+def split_units(section: str) -> List[str]:
     units: List[str] = []
+
     for line in section.split("\n"):
         line = line.strip()
         if not line:
@@ -84,6 +87,7 @@ def split_units_txt(section: str) -> List[str]:
 
         parts = [p.strip() for p in _SENT_SPLIT.split(line) if p.strip()]
         units.extend(parts)
+
     return units
 
 
@@ -93,7 +97,7 @@ def chunk_within_section(
     overlap_tokens: int,
     min_tokens: int,
 ) -> List[Dict]:
-    units = split_units_txt(section_text)
+    units = split_units(section_text)
     if not units:
         return []
 
@@ -105,10 +109,16 @@ def chunk_within_section(
         nonlocal buf, buf_tokens
         if not buf:
             return
+
         content = "\n".join(buf).strip()
         tc = count_tokens(content)
+
         if tc >= min_tokens or not chunks:
-            chunks.append({"tokenCount": tc, "content": content})
+            chunks.append({
+                "tokenCount": tc,
+                "content": content
+            })
+
         buf = []
         buf_tokens = 0
 
@@ -121,33 +131,47 @@ def chunk_within_section(
             if _ENC is not None:
                 toks = _ENC.encode(u)
                 step = chunk_tokens
+
                 for i in range(0, len(toks), step):
                     part = _ENC.decode(toks[i:i + step]).strip()
                     if part:
-                        chunks.append({"tokenCount": count_tokens(part), "content": part})
+                        chunks.append({
+                            "tokenCount": count_tokens(part),
+                            "content": part
+                        })
             else:
                 words = u.split()
                 step = max(int(chunk_tokens * 0.8), 50)
+
                 for i in range(0, len(words), step):
                     part = " ".join(words[i:i + step]).strip()
                     if part:
-                        chunks.append({"tokenCount": count_tokens(part), "content": part})
+                        chunks.append({
+                            "tokenCount": count_tokens(part),
+                            "content": part
+                        })
             continue
 
         if buf and (buf_tokens + ut > chunk_tokens):
             content = "\n".join(buf).strip()
             tc = count_tokens(content)
+
             if tc >= min_tokens or not chunks:
-                chunks.append({"tokenCount": tc, "content": content})
+                chunks.append({
+                    "tokenCount": tc,
+                    "content": content
+                })
 
             carry: List[str] = []
             total = 0
+
             for s in reversed(buf):
                 ts = count_tokens(s)
                 if total + ts > overlap_tokens:
                     break
                 carry.append(s)
                 total += ts
+
             buf = list(reversed(carry))
             buf_tokens = total
 
@@ -160,6 +184,8 @@ def chunk_within_section(
 
 def chunk_text_token_based(
     raw_text: str,
+    source_type: str = "txt",
+    parse_method: str = "plain",
     chunk_tokens: int = 250,
     overlap_tokens: int = 40,
     min_tokens: int = 40,
@@ -168,16 +194,16 @@ def chunk_text_token_based(
         logger.debug("[청킹] 원문 줄바꿈 개수=%s", raw_text.count("\n"))
         logger.debug("[청킹] 원문 앞부분(repr)=%s", repr(raw_text[:200]))
 
-    text = normalize_text_txt(raw_text)
+    text = normalize_text(raw_text, source_type, parse_method)
     if not text:
         logger.info("[청킹] 정규화 결과가 비어있어 청킹을 생략합니다.")
         return []
 
-    sections = split_sections_txt(text)
+    sections = split_sections(text, source_type)
 
     logger.info(
-        "[청킹] 섹션 분리 완료 (섹션 수=%s, 설정: chunk_tokens=%s overlap_tokens=%s min_tokens=%s)",
-        len(sections), chunk_tokens, overlap_tokens, min_tokens
+        "[청킹] 섹션 분리 완료 (섹션 수=%s, source_type=%s, parse_method=%s, 설정: chunk_tokens=%s overlap_tokens=%s min_tokens=%s)",
+        len(sections), source_type, parse_method, chunk_tokens, overlap_tokens, min_tokens
     )
 
     chunks: List[Dict] = []

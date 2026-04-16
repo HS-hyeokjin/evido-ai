@@ -39,7 +39,6 @@ def abort_if_deleted(engine, document_id: int):
 
 @router.post("", response_model=ProcessResponse)
 def process(req: ProcessRequest):
-
     logger.info("[문서처리] 시작 documentId=%s versionId=%s", req.documentId, req.versionId)
 
     engine = get_engine()
@@ -59,7 +58,6 @@ def process(req: ProcessRequest):
 
     try:
         if provider == "LOCAL":
-
             base_dir = os.getenv("UPLOAD_BASE_DIR")
             file_path = Path(base_dir) / storage_key if base_dir else Path(storage_key)
 
@@ -69,7 +67,6 @@ def process(req: ProcessRequest):
             logger.info("[process] LOCAL 파일 사용: %s", file_path)
 
         elif provider == "S3":
-
             bucket = os.getenv("S3_BUCKET")
             if not bucket:
                 raise HTTPException(500, "S3_BUCKET 환경변수 필요")
@@ -89,13 +86,19 @@ def process(req: ProcessRequest):
         else:
             raise HTTPException(400, f"지원하지 않는 storage_provider={provider}")
 
-
-        raw_text = extract_text_from_local_file(
+        extracted = extract_text_from_local_file(
             str(file_path),
             meta.get("content_type")
         )
 
-        logger.info("[process] 텍스트 추출 완료 (길이=%s)", len(raw_text))
+        raw_text = extracted.text
+
+        logger.info(
+            "[process] 텍스트 추출 완료 (길이=%s, source_type=%s, parse_method=%s)",
+            len(raw_text),
+            extracted.source_type,
+            extracted.parse_method,
+        )
 
     finally:
         if temp_path and temp_path.exists():
@@ -109,6 +112,8 @@ def process(req: ProcessRequest):
 
     chunks = chunk_text_token_based(
         raw_text,
+        source_type=extracted.source_type,
+        parse_method=extracted.parse_method,
         chunk_tokens=120,
         overlap_tokens=20,
         min_tokens=40
@@ -146,7 +151,13 @@ def process(req: ProcessRequest):
         "contentHead": c["content"][:200] + ("..." if len(c["content"]) > 200 else "")
     } for c in chunks[:3]]
 
-    logger.info("[문서처리] 완료 documentId=%s versionId=%s", req.documentId, req.versionId)
+    logger.info(
+        "[문서처리] 완료 documentId=%s versionId=%s source_type=%s parse_method=%s",
+        req.documentId,
+        req.versionId,
+        extracted.source_type,
+        extracted.parse_method,
+    )
 
     return ProcessResponse(
         documentId=req.documentId,
