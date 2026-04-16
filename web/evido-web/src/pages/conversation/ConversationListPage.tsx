@@ -22,7 +22,7 @@ interface Conversation {
 interface Document {
     documentId: number;
     title?: string | null;
-    createdAt: string;
+    createdAt?: string | null;
 }
 
 export default function ConversationListPage() {
@@ -54,7 +54,13 @@ export default function ConversationListPage() {
             ]);
 
             setConversations(conversationRes.data ?? []);
-            setDocuments(docPage.content ?? []);
+            setDocuments(
+                (docPage.content ?? []).map((doc) => ({
+                    documentId: doc.documentId,
+                    title: doc.title ?? null,
+                    createdAt: doc.createdAt ?? null,
+                }))
+            );
         } catch (e) {
             console.error("대화/문서 조회 실패", e);
         } finally {
@@ -262,7 +268,9 @@ export default function ConversationListPage() {
                                     </div>
 
                                     <div className="mt-2 text-[11px] text-[#9A93AD]">
-                                        {new Date(doc.createdAt).toLocaleDateString()}
+                                        {doc.createdAt
+                                            ? new Date(doc.createdAt).toLocaleDateString()
+                                            : "-"}
                                     </div>
                                 </motion.button>
                             ))}
