@@ -59,7 +59,7 @@ export default function Sidebar() {
     const [wsOpen, setWsOpen] = useState(true);
 
     const [workspaceMenuOpenId, setWorkspaceMenuOpenId] = useState<number | null>(null);
-    const [conversationMenuOpenId, setConversationMenuOpenId] = useState<number | null>(null);
+    const [conversationMenuOpenId, setConversationMenuOpenId] = useState<string | null>(null);
 
     const [inputModal, setInputModal] = useState<InputModalState>({ open: false });
     const [confirmModal, setConfirmModal] = useState<ConfirmModalState>({ open: false });
