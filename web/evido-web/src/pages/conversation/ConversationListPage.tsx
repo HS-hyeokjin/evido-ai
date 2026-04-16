@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { listDocuments } from "../../api/documents";
 import api from "../../api/client";
 import { motion } from "framer-motion";
 import {
@@ -37,15 +38,23 @@ export default function ConversationListPage() {
     }, [workspaceId]);
 
     const fetchAll = async () => {
+        if (!workspaceId) return;
+
         setLoading(true);
         try {
-            const [conversationRes, docRes] = await Promise.all([
+            const workspaceIdNumber = Number(workspaceId);
+
+            const [conversationRes, docPage] = await Promise.all([
                 api.get(`/api/conversations/${workspaceId}/conversations`),
-                api.get(`/api/documents?page=0&size=5`)
+                listDocuments(workspaceIdNumber, {
+                    page: 0,
+                    size: 5,
+                    sort: "createdAt,desc",
+                }),
             ]);
 
             setConversations(conversationRes.data ?? []);
-            setDocuments(docRes.data.content ?? []);
+            setDocuments(docPage.content ?? []);
         } catch (e) {
             console.error("대화/문서 조회 실패", e);
         } finally {
