@@ -21,7 +21,7 @@ interface Conversation {
 
 interface Document {
     documentId: number;
-    title: string;
+    title?: string | null;
     createdAt: string;
 }
 
@@ -34,7 +34,7 @@ export default function ConversationListPage() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        fetchAll();
+        void fetchAll();
     }, [workspaceId]);
 
     const fetchAll = async () => {
@@ -269,7 +269,6 @@ export default function ConversationListPage() {
                         </div>
                     )}
                 </section>
-
             </div>
         </div>
     );
