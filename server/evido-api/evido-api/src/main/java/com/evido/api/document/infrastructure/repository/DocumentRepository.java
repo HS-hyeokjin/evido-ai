@@ -7,8 +7,19 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface DocumentRepository extends JpaRepository<Document, Long> {
 
-    Page<Document> findByWorkspaceId(Long orgId, Pageable pageable);
+    Page<Document> findByWorkspaceIdAndOwnerUserIdAndStatus(
+            Long workspaceId,
+            String ownerUserId,
+            String status,
+            Pageable pageable
+    );
 
-    Page<Document> findByWorkspaceIdAndTitleContainingIgnoreCase(Long orgId, String title, Pageable pageable);
+    Page<Document> findByWorkspaceIdAndOwnerUserIdAndStatusAndTitleContainingIgnoreCase(
+            Long workspaceId,
+            String ownerUserId,
+            String status,
+            String title,
+            Pageable pageable
+    );
 
 }

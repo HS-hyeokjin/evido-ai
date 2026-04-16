@@ -189,11 +189,22 @@ public class DocumentService implements DocumentUseCase {
                 query.sort()
         );
 
-        var page = (StringUtils.hasText(query.q()))
-                ? documentRepository.findByWorkspaceIdAndTitleContainingIgnoreCase(
-                query.workspaceId(), query.q().trim(), pageable
+        String keyword = StringUtils.hasText(query.q()) ? query.q().trim() : null;
+
+        var page = StringUtils.hasText(keyword)
+                ? documentRepository.findByWorkspaceIdAndOwnerUserIdAndStatusAndTitleContainingIgnoreCase(
+                query.workspaceId(),
+                query.userId(),
+                "ACTIVE",
+                keyword,
+                pageable
         )
-                : documentRepository.findByWorkspaceId(query.workspaceId(), pageable);
+                : documentRepository.findByWorkspaceIdAndOwnerUserIdAndStatus(
+                query.workspaceId(),
+                query.userId(),
+                "ACTIVE",
+                pageable
+        );
 
         List<Long> versionIds = page.getContent().stream()
                 .map(Document::getCurrentVersionId)
