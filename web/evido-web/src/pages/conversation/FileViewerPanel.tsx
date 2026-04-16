@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from "react";
-import api from "../../api/client";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
     uploadDocumentsBulk,
     listDocuments,
     deleteDocument,
+    getDocumentFileUrl,
+    getDocumentTextContent,
     type DocumentListItem,
     type PageResponse,
 } from "../../api/documents";
@@ -17,7 +18,6 @@ import {
     FolderOpen,
     ChevronDown,
     ChevronRight,
-    Sparkles,
 } from "lucide-react";
 
 type Props = {
@@ -53,30 +53,6 @@ function formatDate(iso?: string | null) {
     }
 }
 
-function buildApiUrl(path: string) {
-    const base = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
-    return `${base}${path}`;
-}
-
-function makeFileUrl(d: DocumentListItem) {
-    const anyD: any = d as any;
-    const url = anyD.viewUrl || anyD.fileUrl || anyD.downloadUrl || anyD.url;
-
-    if (typeof url === "string" && url.trim()) {
-        if (url.startsWith("http://") || url.startsWith("https://")) return url;
-        return buildApiUrl(url.startsWith("/") ? url : `/${url}`);
-    }
-
-    return buildApiUrl(`/api/documents/${d.documentId}/file`);
-}
-
-async function fetchTextContent(documentId: number) {
-    const res = await api.get<string>(`/api/documents/${documentId}/content`, {
-        responseType: "text",
-    });
-    return res.data ?? "";
-}
-
 export default function FileViewerPanel({ workspaceId }: Props) {
     const [query, setQuery] = useState("");
     const [page, setPage] = useState(0);
@@ -104,54 +80,81 @@ export default function FileViewerPanel({ workspaceId }: Props) {
     const totalPages = docPage?.totalPages ?? 0;
     const list = docPage?.content ?? [];
 
-    const fetchDocs = async (currentQuery = query) => {
-        try {
-            setDocLoading(true);
-            setDocError(null);
+    const hasValidWorkspace =
+        Number.isFinite(workspaceId) && workspaceId > 0;
 
-            const data = await listDocuments({
-                query: currentQuery || undefined,
-                page,
-                size,
-                sort: "createdAt,desc",
-            });
-
-            setDocPage(data);
-
-            const stillExists =
-                selected && data.content.some((x) => x.documentId === selected.documentId);
-
-            if (selected && !stillExists) {
-                setSelected(null);
-                setViewerUrl(null);
-                setViewerMode("unknown");
-                setTextContent("");
-                setTextError(null);
-            }
-        } catch (e: any) {
-            console.error(e);
-            setDocError(e?.response?.data?.message ?? "문서 목록 조회 실패");
-        } finally {
-            setDocLoading(false);
-        }
+    const resetViewer = () => {
+        setSelected(null);
+        setViewerUrl(null);
+        setViewerMode("unknown");
+        setTextContent("");
+        setTextError(null);
+        setTextLoading(false);
     };
 
+    const fetchDocs = useCallback(
+        async (currentQuery = query, currentPage = page) => {
+            if (!hasValidWorkspace) {
+                setDocPage(null);
+                setDocError("워크스페이스 정보가 없습니다.");
+                resetViewer();
+                return;
+            }
+
+            try {
+                setDocLoading(true);
+                setDocError(null);
+
+                const data = await listDocuments(workspaceId, {
+                    query: currentQuery || undefined,
+                    page: currentPage,
+                    size,
+                    sort: "createdAt,desc",
+                });
+
+                setDocPage(data);
+
+                const stillExists =
+                    selected &&
+                    data.content.some((x) => x.documentId === selected.documentId);
+
+                if (selected && !stillExists) {
+                    resetViewer();
+                }
+            } catch (e: any) {
+                console.error(e);
+                setDocError(e?.response?.data?.message ?? "문서 목록 조회 실패");
+            } finally {
+                setDocLoading(false);
+            }
+        },
+        [hasValidWorkspace, workspaceId, query, page, size, selected]
+    );
+
     useEffect(() => {
-        fetchDocs();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [page, workspaceId]);
+        setPage(0);
+        resetViewer();
+    }, [workspaceId]);
+
+    useEffect(() => {
+        fetchDocs(query, page);
+    }, [fetchDocs, query, page]);
 
     useEffect(() => {
         const timer = setTimeout(() => {
             setPage(0);
-            fetchDocs(query);
+            fetchDocs(query, 0);
         }, 250);
 
         return () => clearTimeout(timer);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [query]);
+    }, [query, fetchDocs]);
 
     const onPick = async (d: DocumentListItem) => {
+        if (!hasValidWorkspace) {
+            alert("워크스페이스 정보가 없습니다.");
+            return;
+        }
+
         setSelected(d);
         setTextError(null);
         setTextContent("");
@@ -161,14 +164,24 @@ export default function FileViewerPanel({ workspaceId }: Props) {
         const mode = guessModeByExt(ext);
         setViewerMode(mode);
 
-        const url = makeFileUrl(d);
+        const url = getDocumentFileUrl(
+            workspaceId,
+            d.documentId,
+            typeof d.latestVersionId === "number" ? d.latestVersionId : undefined
+        );
         setViewerUrl(url);
 
         if (mode === "text") {
             try {
                 setTextLoading(true);
-                const c = await fetchTextContent(d.documentId);
-                setTextContent(c);
+
+                const content = await getDocumentTextContent(
+                    workspaceId,
+                    d.documentId,
+                    typeof d.latestVersionId === "number" ? d.latestVersionId : undefined
+                );
+
+                setTextContent(content);
             } catch (e: any) {
                 console.error(e);
                 setTextError(e?.response?.data?.message ?? "텍스트 미리보기 실패");
@@ -179,14 +192,19 @@ export default function FileViewerPanel({ workspaceId }: Props) {
     };
 
     const onDelete = async (d: DocumentListItem) => {
+        if (!hasValidWorkspace) {
+            alert("워크스페이스 정보가 없습니다.");
+            return;
+        }
+
         if (!confirm(`문서를 삭제하시겠습니까?\n${d.title ?? `문서 #${d.documentId}`}`)) {
             return;
         }
 
         try {
             setDocLoading(true);
-            await deleteDocument(d.documentId);
-            await fetchDocs();
+            await deleteDocument(workspaceId, d.documentId);
+            await fetchDocs(query, page);
         } catch (e: any) {
             console.error(e);
             alert(e?.response?.data?.message ?? "삭제 실패");
@@ -201,14 +219,18 @@ export default function FileViewerPanel({ workspaceId }: Props) {
     };
 
     const onUploadFiles = async (files: File[]) => {
+        if (!hasValidWorkspace) {
+            alert("워크스페이스 정보가 없습니다.");
+            return;
+        }
+
         if (!files.length) return;
 
         try {
             setUploadLoading(true);
             setUploadProgress(0);
 
-            const data = await uploadDocumentsBulk({
-                title: undefined,
+            const data = await uploadDocumentsBulk(workspaceId, {
                 files,
                 onProgress: (p) => setUploadProgress(p),
             });
@@ -218,16 +240,27 @@ export default function FileViewerPanel({ workspaceId }: Props) {
 
             alert(`업로드 완료! 성공 ${ok} / 실패 ${fail}`);
             setPage(0);
-            await fetchDocs();
+            await fetchDocs(query, 0);
         } catch (e: any) {
             console.error(e);
             alert(e?.response?.data?.message ?? "업로드 실패");
         } finally {
             setUploadLoading(false);
             setUploadProgress(0);
-            if (fileInputRef.current) fileInputRef.current.value = "";
+
+            if (fileInputRef.current) {
+                fileInputRef.current.value = "";
+            }
         }
     };
+
+    if (!hasValidWorkspace) {
+        return (
+            <div className="rounded-[24px] border border-rose-200 bg-rose-50 px-5 py-4 text-sm font-semibold text-rose-700">
+                워크스페이스 정보가 없습니다.
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-5">
@@ -235,7 +268,6 @@ export default function FileViewerPanel({ workspaceId }: Props) {
                 <div className="border-b border-slate-100 px-5 py-4">
                     <div className="flex items-start justify-between gap-3">
                         <div>
-
                             <button
                                 type="button"
                                 onClick={() => setFileSectionOpen((prev) => !prev)}
@@ -249,12 +281,16 @@ export default function FileViewerPanel({ workspaceId }: Props) {
                                 <FolderOpen className="h-4 w-4 text-slate-500" />
                                 파일
                             </button>
+
+                            <div className="mt-2 text-xs font-bold text-primary-700">
+                                workspace #{workspaceId}
+                            </div>
                         </div>
 
                         <div className="flex shrink-0 items-center gap-2">
                             <button
                                 type="button"
-                                onClick={() => fetchDocs()}
+                                onClick={() => fetchDocs(query, page)}
                                 disabled={docLoading || uploadLoading}
                                 className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
                             >
@@ -288,6 +324,16 @@ export default function FileViewerPanel({ workspaceId }: Props) {
 
                 {fileSectionOpen && (
                     <div className="space-y-4 p-5">
+                        <div className="relative">
+                            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                            <input
+                                value={query}
+                                onChange={(e) => setQuery(e.target.value)}
+                                placeholder="문서명 검색"
+                                className="w-full rounded-[20px] border border-slate-200 bg-slate-50/80 py-3 pl-11 pr-4 text-sm text-slate-800 outline-none transition focus:border-primary-300 focus:bg-white"
+                            />
+                        </div>
+
                         {(uploadLoading || uploadProgress > 0) && (
                             <div className="rounded-[24px] border border-primary-100 bg-gradient-to-r from-primary-50 to-white p-4">
                                 <div className="flex items-center justify-between text-xs">
@@ -366,9 +412,11 @@ export default function FileViewerPanel({ workspaceId }: Props) {
                                                         </div>
 
                                                         <div className="mt-1 truncate text-xs text-slate-500">
-                                                            {d.filename
-                                                                ? d.filename
-                                                                : `doc #${d.documentId}`}
+                                                            {d.filename ? d.filename : `doc #${d.documentId}`}
+                                                        </div>
+
+                                                        <div className="mt-1 text-[11px] text-slate-400">
+                                                            {formatDate(d.createdAt)}
                                                         </div>
                                                     </div>
                                                 </button>
@@ -443,7 +491,6 @@ export default function FileViewerPanel({ workspaceId }: Props) {
                                 )}
                                 미리보기
                             </button>
-
                         </div>
 
                         {viewerUrl && (

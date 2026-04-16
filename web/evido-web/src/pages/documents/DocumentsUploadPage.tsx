@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useParams } from "react-router-dom";
 import {
     uploadDocumentsBulk,
     listDocuments,
     deleteDocument,
     type BulkUploadResponse,
     type DocumentListItem,
-    type PageResponse
+    type PageResponse,
 } from "../../api/documents";
 import {
     UploadCloud,
@@ -18,7 +19,6 @@ import {
     AlertTriangle,
     HardDrive,
     Sparkles,
-    ChevronRight
 } from "lucide-react";
 
 const ACCEPTED_EXTS = [".pdf", ".docx", ".txt", ".md"] as const;
@@ -121,17 +121,23 @@ function formatDate(iso?: string | null) {
     if (!iso) return "-";
     try {
         const d = new Date(iso);
-        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(
-            2,
-            "0"
-        )} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+            d.getDate()
+        ).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(
+            d.getMinutes()
+        ).padStart(2, "0")}`;
     } catch {
         return iso;
     }
 }
 
 export default function DocumentsUploadPage() {
-    const [title] = useState("");
+    const { workspaceId } = useParams<{ workspaceId: string }>();
+
+    const workspaceIdNumber = Number(workspaceId);
+    const hasValidWorkspace =
+        Number.isFinite(workspaceIdNumber) && workspaceIdNumber > 0;
+
     const [files, setFiles] = useState<File[]>([]);
     const [rejected, setRejected] = useState<RejectedItem[]>([]);
     const [result, setResult] = useState<BulkUploadResponse | null>(null);
@@ -146,7 +152,7 @@ export default function DocumentsUploadPage() {
     const maxHint = prettySize(MAX_BYTES);
 
     const summaryLabel = useMemo(() => {
-        if (files.length === 0) return `파일/폴더를 드래그하거나 클릭해서 선택하세요`;
+        if (files.length === 0) return "파일/폴더를 드래그하거나 클릭해서 선택하세요";
         const totalBytes = files.reduce((acc, f) => acc + f.size, 0);
         return `${files.length}개 선택됨 · 총 ${prettySize(totalBytes)}`;
     }, [files]);
@@ -164,7 +170,12 @@ export default function DocumentsUploadPage() {
                 continue;
             }
 
-            const dup = next.some((x) => x.name === f.name && x.size === f.size && x.lastModified === f.lastModified);
+            const dup = next.some(
+                (x) =>
+                    x.name === f.name &&
+                    x.size === f.size &&
+                    x.lastModified === f.lastModified
+            );
             if (!dup) next.push(f);
         }
 
@@ -197,10 +208,12 @@ export default function DocumentsUploadPage() {
         addFiles(dropped);
 
         const droppedExts = dropped.map((f) => getExt(f.name)).filter(Boolean);
-        const hasAnyAccepted = droppedExts.some((ext) => ACCEPTED_EXTS.includes(ext as any));
+        const hasAnyAccepted = droppedExts.some((ext) =>
+            ACCEPTED_EXTS.includes(ext as any)
+        );
+
         if (!hasAnyAccepted) {
             alert(`허용 파일(${acceptedHint})이 없습니다. 폴더를 드롭했다면 확장자를 확인해주세요.`);
-            return;
         }
     };
 
@@ -240,11 +253,28 @@ export default function DocumentsUploadPage() {
     const [page, setPage] = useState(0);
     const size = 10;
 
-    const fetchDocs = async () => {
+    useEffect(() => {
+        setPage(0);
+    }, [workspaceIdNumber]);
+
+    const fetchDocs = useCallback(async () => {
+        if (!hasValidWorkspace) {
+            setDocPage(null);
+            setDocError("워크스페이스 정보가 없습니다.");
+            return;
+        }
+
         try {
             setDocLoading(true);
             setDocError(null);
-            const data = await listDocuments({ query: q || undefined, page, size, sort: "createdAt,desc" });
+
+            const data = await listDocuments(workspaceIdNumber, {
+                query: q || undefined,
+                page,
+                size,
+                sort: "createdAt,desc",
+            });
+
             setDocPage(data);
         } catch (e: any) {
             console.error(e);
@@ -252,30 +282,39 @@ export default function DocumentsUploadPage() {
         } finally {
             setDocLoading(false);
         }
-    };
+    }, [hasValidWorkspace, workspaceIdNumber, q, page, size]);
 
     useEffect(() => {
         fetchDocs();
-    }, [page]);
+    }, [fetchDocs]);
 
     useEffect(() => {
         if (!result) return;
         fetchDocs();
-    }, [result]);
+    }, [result, fetchDocs]);
 
     const onUpload = async () => {
-        if (files.length === 0) return alert("파일을 선택해주세요.");
+        if (!hasValidWorkspace) {
+            alert("워크스페이스 정보가 없습니다.");
+            return;
+        }
+
+        if (files.length === 0) {
+            alert("파일을 선택해주세요.");
+            return;
+        }
+
         try {
             setLoading(true);
             setProgress(0);
 
-            const data = await uploadDocumentsBulk({
-                title: title || undefined,
+            const data = await uploadDocumentsBulk(workspaceIdNumber, {
                 files,
                 onProgress: (p) => setProgress(p),
             });
 
             setResult(data);
+
             const ok = data.success?.length ?? 0;
             const fail = data.failed?.length ?? 0;
             alert(`업로드 완료! 성공 ${ok} / 실패 ${fail}`);
@@ -288,11 +327,16 @@ export default function DocumentsUploadPage() {
     };
 
     const onDeleteDoc = async (documentId: number) => {
+        if (!hasValidWorkspace) {
+            alert("워크스페이스 정보가 없습니다.");
+            return;
+        }
+
         if (!confirm("문서를 삭제하시겠습니까?")) return;
 
         try {
             setDocLoading(true);
-            await deleteDocument(documentId);
+            await deleteDocument(workspaceIdNumber, documentId);
             await fetchDocs();
         } catch (e: any) {
             console.error(e);
@@ -302,7 +346,19 @@ export default function DocumentsUploadPage() {
         }
     };
 
-    const totalSelectedBytes = useMemo(() => files.reduce((acc, f) => acc + f.size, 0), [files]);
+    const totalSelectedBytes = useMemo(
+        () => files.reduce((acc, f) => acc + f.size, 0),
+        [files]
+    );
+
+    if (!hasValidWorkspace) {
+        return (
+            <div className="rounded-[22px] border border-rose-200 bg-rose-50 p-6 text-rose-700">
+                워크스페이스 정보가 없습니다.
+                문서 페이지는 `/workspace/:workspaceId/...` 경로에서 열리도록 맞춰주세요.
+            </div>
+        );
+    }
 
     return (
         <div className="max-w-5xl space-y-6 font-sans text-slate-800">
@@ -324,6 +380,10 @@ export default function DocumentsUploadPage() {
                         <p className="mt-1.5 text-xs leading-5 text-[#7B728D]">
                             파일을 업로드하고 문서 목록을 관리할 수 있어요.
                         </p>
+
+                        <p className="mt-2 text-xs font-bold text-[#7C63B8]">
+                            workspace #{workspaceIdNumber}
+                        </p>
                     </div>
 
                     <div className="inline-flex items-center gap-2 rounded-xl border border-[#E9DFFB] bg-white/80 px-3 py-2 text-xs font-semibold text-[#7C63B8]">
@@ -343,7 +403,9 @@ export default function DocumentsUploadPage() {
                     </div>
                     <div className="rounded-xl border border-[#EEE7FB] bg-white/75 px-3.5 py-3 backdrop-blur">
                         <div className="text-[11px] font-semibold text-[#9A8CB8]">총 용량</div>
-                        <div className="mt-1 text-sm font-black text-slate-900">{prettySize(totalSelectedBytes)}</div>
+                        <div className="mt-1 text-sm font-black text-slate-900">
+                            {prettySize(totalSelectedBytes)}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -426,7 +488,9 @@ export default function DocumentsUploadPage() {
                             </div>
                             <div className="rounded-2xl border border-[#EEE7FB] bg-white px-3 py-3">
                                 <div className="text-[11px] font-extrabold text-[#9A8CB8]">총 용량</div>
-                                <div className="text-sm font-black text-slate-900">{prettySize(totalSelectedBytes)}</div>
+                                <div className="text-sm font-black text-slate-900">
+                                    {prettySize(totalSelectedBytes)}
+                                </div>
                             </div>
                             <div className="rounded-2xl border border-[#EEE7FB] bg-white px-3 py-3">
                                 <div className="text-[11px] font-extrabold text-[#9A8CB8]">기본 topK</div>
@@ -526,7 +590,10 @@ export default function DocumentsUploadPage() {
 
                         <ul className="mt-3 space-y-2">
                             {rejected.slice(0, 10).map((r, idx) => (
-                                <li key={`${r.name}-${idx}`} className="rounded-2xl border border-amber-200 bg-white p-3">
+                                <li
+                                    key={`${r.name}-${idx}`}
+                                    className="rounded-2xl border border-amber-200 bg-white p-3"
+                                >
                                     <div className="truncate text-sm font-bold text-slate-900">{r.name}</div>
                                     <div className="mt-1 text-xs text-slate-600">{prettySize(r.size)}</div>
                                     <div className="mt-1 text-xs font-bold text-amber-700">{r.reason}</div>
@@ -590,7 +657,10 @@ export default function DocumentsUploadPage() {
                         ) : (
                             <ul className="space-y-2">
                                 {result.failed.map((f, idx) => (
-                                    <li key={`${f.filename}-${idx}`} className="rounded-2xl border border-[#F4D5D9] bg-white p-3">
+                                    <li
+                                        key={`${f.filename}-${idx}`}
+                                        className="rounded-2xl border border-[#F4D5D9] bg-white p-3"
+                                    >
                                         <div className="font-extrabold text-slate-900">{f.filename}</div>
                                         <div className="mt-1 text-xs font-bold text-rose-600">{f.reason}</div>
                                     </li>
@@ -627,7 +697,9 @@ export default function DocumentsUploadPage() {
                     </div>
                 )}
 
-                {docLoading && <div className="text-sm text-[#8B84A0]">목록 불러오는 중...</div>}
+                {docLoading && (
+                    <div className="text-sm text-[#8B84A0]">목록 불러오는 중...</div>
+                )}
 
                 {!docLoading && docPage && docPage.content.length === 0 && (
                     <div className="flex h-36 flex-col items-center justify-center rounded-2xl border border-dashed border-[#E9DFFB] bg-gradient-to-b from-[#FFFEFF] to-[#F9F5FF] text-center">
@@ -650,14 +722,19 @@ export default function DocumentsUploadPage() {
 
                         <ul className="divide-y divide-[#F1EAFB]">
                             {docPage.content.map((d) => (
-                                <li key={d.documentId} className="grid grid-cols-12 items-center gap-2 px-4 py-3">
+                                <li
+                                    key={d.documentId}
+                                    className="grid grid-cols-12 items-center gap-2 px-4 py-3"
+                                >
                                     <div className="col-span-5 min-w-0">
                                         <div className="truncate text-sm font-bold text-slate-900">
                                             {d.title ?? `문서 #${d.documentId}`}
                                         </div>
                                         <div className="mt-1 truncate text-xs text-[#8B84A0]">
                                             doc #{d.documentId}
-                                            {typeof d.latestVersionId === "number" ? ` · ver #${d.latestVersionId}` : ""}
+                                            {typeof d.latestVersionId === "number"
+                                                ? ` · ver #${d.latestVersionId}`
+                                                : ""}
                                             {d.filename ? ` · ${d.filename}` : ""}
                                         </div>
                                     </div>
@@ -707,9 +784,13 @@ export default function DocumentsUploadPage() {
                             <button
                                 type="button"
                                 onClick={() =>
-                                    setPage((p) => (docPage ? Math.min(docPage.totalPages - 1, p + 1) : p + 1))
+                                    setPage((p) =>
+                                        docPage ? Math.min(docPage.totalPages - 1, p + 1) : p + 1
+                                    )
                                 }
-                                disabled={docLoading || (docPage ? page >= docPage.totalPages - 1 : false)}
+                                disabled={
+                                    docLoading || (docPage ? page >= docPage.totalPages - 1 : false)
+                                }
                                 className="rounded-xl border border-[#E9DFFB] bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:bg-[#FCFAFF] disabled:opacity-50"
                             >
                                 다음

@@ -1,12 +1,30 @@
-import api from "./client";
 import type { AxiosProgressEvent } from "axios";
+import api from "./client";
 
-export type DocumentCreateResponse = {
+export type PageResponse<T> = {
+    content: T[];
+    number: number;
+    size: number;
+    totalElements: number;
+    totalPages: number;
+    first: boolean;
+    last: boolean;
+};
+
+export type DocumentListItem = {
+    documentId: number;
+    latestVersionId?: number | null;
+    title?: string | null;
+    filename?: string | null;
+    status?: string | null;
+    createdAt?: string | null;
+};
+
+export type BulkUploadSuccessItem = {
+    fileId: number;
     documentId: number;
     versionId: number;
-    fileId: number;
     title: string;
-    status: string;
 };
 
 export type BulkUploadFailedItem = {
@@ -15,73 +33,132 @@ export type BulkUploadFailedItem = {
 };
 
 export type BulkUploadResponse = {
-    success: DocumentCreateResponse[];
+    success: BulkUploadSuccessItem[];
     failed: BulkUploadFailedItem[];
 };
 
-export async function uploadDocumentsBulk(params: {
-    title?: string;
-    files: File[];
-    onProgress?: (percent: number, ev: AxiosProgressEvent) => void;
-}) {
-    const form = new FormData();
-    if (params.title) form.append("title", params.title);
-    params.files.forEach((f) => form.append("files", f));
-
-    const res = await api.post<BulkUploadResponse>("/api/documents/bulk", form, {
-        onUploadProgress: (ev) => {
-            const total = ev.total ?? 0;
-            if (!total) {
-                params.onProgress?.(0, ev);
-                return;
-            }
-            const percent = Math.round((ev.loaded / total) * 100);
-            params.onProgress?.(percent, ev);
-        },
-    });
-
-    return res.data;
-}
-
-export type DocumentListItem = {
-    documentId: number;
-    title: string;
-    latestVersionId?: number | null;
-    fileId?: number | null;
-    filename?: string | null;
-    createdAt?: string | null;
-    status?: string | null;
-};
-
-export type PageResponse<T> = {
-    content: T[];
-    number: number;
-    size: number;
-    totalElements: number;
-    totalPages: number;
-};
-
-export async function listDocuments(params: {
+export type ListDocumentsParams = {
     query?: string;
     page?: number;
     size?: number;
     sort?: string;
-}) {
-    const { query, page = 0, size = 10, sort = "createdAt,desc" } = params;
+};
 
-    const res = await api.get<PageResponse<DocumentListItem>>("/api/documents", {
-        params: {
-            q: query || undefined,
-            page,
-            size,
-            sort,
-        },
-    });
+export type UploadDocumentsBulkParams = {
+    titlePrefix?: string;
+    files: File[];
+    onProgress?: (percent: number) => void;
+};
 
-    return res.data;
+const documentBasePath = (workspaceId: number) =>
+    `/api/workspaces/${workspaceId}/documents`;
+
+export async function listDocuments(
+    workspaceId: number,
+    params: ListDocumentsParams = {}
+): Promise<PageResponse<DocumentListItem>> {
+    const { data } = await api.get<PageResponse<DocumentListItem>>(
+        documentBasePath(workspaceId),
+        {
+            params: {
+                q: params.query,
+                page: params.page ?? 0,
+                size: params.size ?? 10,
+                sort: params.sort ?? "createdAt,desc",
+            },
+        }
+    );
+
+    return data;
 }
 
-export async function deleteDocument(documentId: number) {
-    const res = await api.delete(`/api/documents/${documentId}`);
-    return res.data;
+export async function deleteDocument(
+    workspaceId: number,
+    documentId: number
+): Promise<void> {
+    await api.delete(`${documentBasePath(workspaceId)}/${documentId}`);
+}
+
+export async function uploadDocumentsBulk(
+    workspaceId: number,
+    params: UploadDocumentsBulkParams
+): Promise<BulkUploadResponse> {
+    const formData = new FormData();
+
+    if (params.titlePrefix?.trim()) {
+        formData.append("titlePrefix", params.titlePrefix.trim());
+    }
+
+    for (const file of params.files) {
+        formData.append("files", file);
+    }
+
+    const { data } = await api.post<BulkUploadResponse>(
+        `${documentBasePath(workspaceId)}/bulk`,
+        formData,
+        {
+            headers: {
+                "Content-Type": "multipart/form-data",
+            },
+            onUploadProgress: (event: AxiosProgressEvent) => {
+                if (!params.onProgress || !event.total) return;
+                const percent = Math.round((event.loaded * 100) / event.total);
+                params.onProgress(percent);
+            },
+        }
+    );
+
+    return data;
+}
+
+export async function getDocumentTextContent(
+    workspaceId: number,
+    documentId: number,
+    versionId?: number
+): Promise<string> {
+    const { data } = await api.get<string>(
+        `${documentBasePath(workspaceId)}/${documentId}/content`,
+        {
+            params: {
+                versionId,
+            },
+            responseType: "text",
+        }
+    );
+
+    return data;
+}
+
+export function getDocumentFileUrl(
+    workspaceId: number,
+    documentId: number,
+    versionId?: number
+): string {
+    const url = new URL(
+        `${documentBasePath(workspaceId)}/${documentId}/file`,
+        window.location.origin
+    );
+
+    if (typeof versionId === "number") {
+        url.searchParams.set("versionId", String(versionId));
+    }
+
+    return url.pathname + url.search;
+}
+
+export async function getDocumentDownloadUrl(
+    workspaceId: number,
+    documentId: number,
+    versionId?: number
+): Promise<string> {
+    const { data } = await api.get<string>(
+        `${documentBasePath(workspaceId)}/${documentId}/download`,
+        {
+            params: {
+                versionId,
+            },
+        }
+    );
+
+    return data;
 }
