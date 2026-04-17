@@ -14,7 +14,9 @@ public class WebConfig implements WebMvcConfigurer {
                         "http://localhost:5173",
                         "http://localhost:3000",
                         "https://evido-web.vercel.app",
-                        "https://evido-ai.vercel.app/"
+                        "https://evido-ai.vercel.app",
+                        "https://evido.site",
+                        "https://www.evido.site"
                 )
                 .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
