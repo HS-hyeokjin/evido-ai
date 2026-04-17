@@ -85,14 +85,7 @@ export default function Sidebar() {
         return res.data;
     };
 
-    const moveToWorkspace = async (wsId: number | string) => {
-        const nextConversations = await fetchConversations(String(wsId));
-
-        if (nextConversations.length > 0) {
-            navigate(`/workspace/${wsId}/conversation/${nextConversations[0].id}`);
-            return;
-        }
-
+    const moveToWorkspace = (wsId: number | string) => {
         navigate(`/workspace/${wsId}`);
     };
 
