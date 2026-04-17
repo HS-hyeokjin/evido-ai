@@ -208,9 +208,7 @@ export default function Sidebar() {
 
                 setWorkspaces((prev) =>
                     prev.map((item) =>
-                        item.id === inputModal.workspace!.id
-                            ? { ...item, name: value }
-                            : item
+                        item.id === inputModal.workspace!.id ? { ...item, name: value } : item
                     )
                 );
 
@@ -225,9 +223,7 @@ export default function Sidebar() {
 
                 setConversations((prev) =>
                     prev.map((item) =>
-                        item.id === inputModal.conversation!.id
-                            ? { ...item, title: value }
-                            : item
+                        item.id === inputModal.conversation!.id ? { ...item, title: value } : item
                     )
                 );
 
@@ -258,8 +254,7 @@ export default function Sidebar() {
                 setConversations(nextConversations);
                 setConfirmModal({ open: false });
 
-                const isCurrentConversation =
-                    String(targetConversationId) === conversationId;
+                const isCurrentConversation = String(targetConversationId) === conversationId;
 
                 if (isCurrentConversation) {
                     if (nextConversations.length > 0 && workspaceId) {
@@ -279,9 +274,7 @@ export default function Sidebar() {
 
                 await api.delete(`/api/workspaces/${targetWorkspaceId}`);
 
-                const remaining = workspaces.filter(
-                    (item) => item.id !== targetWorkspaceId
-                );
+                const remaining = workspaces.filter((item) => item.id !== targetWorkspaceId);
                 setWorkspaces(remaining);
                 setConfirmModal({ open: false });
 
@@ -298,8 +291,7 @@ export default function Sidebar() {
 
                 const initRes = await api.get("/api/workspaces/init");
                 const initWorkspaceId = initRes.data?.workspaceId;
-                const initConversationId =
-                    initRes.data?.conversationId ?? initRes.data?.chatId;
+                const initConversationId = initRes.data?.conversationId ?? initRes.data?.chatId;
 
                 await fetchWorkspaces();
 
@@ -356,7 +348,7 @@ export default function Sidebar() {
             <aside className="flex h-screen w-72 flex-col border-r border-slate-200 bg-gradient-to-b from-white to-slate-50 px-4 py-5">
                 <div
                     onClick={() => navigate("/")}
-                    className="mb-4 flex cursor-pointer items-center gap-3 group"
+                    className="group mb-4 flex cursor-pointer items-center gap-3"
                 >
                     <img
                         src={Logo}
@@ -384,8 +376,7 @@ export default function Sidebar() {
                 <NavLink
                     to="/"
                     className={({ isActive }) =>
-                        `flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition
-                        ${
+                        `flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition ${
                             isActive
                                 ? "bg-primary-100 text-primary-700 shadow-sm"
                                 : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
@@ -399,6 +390,7 @@ export default function Sidebar() {
                 <div className="mt-4">
                     <div className="flex items-center justify-between px-1">
                         <button
+                            type="button"
                             onClick={() => setWsOpen((prev) => !prev)}
                             className="flex flex-1 items-center justify-between rounded-lg px-2 py-2 text-[11px] font-bold text-slate-400 transition hover:bg-slate-100"
                         >
@@ -407,6 +399,7 @@ export default function Sidebar() {
                         </button>
 
                         <button
+                            type="button"
                             onClick={openCreateWorkspaceModal}
                             className="ml-1 rounded-lg p-2 text-slate-400 transition hover:bg-primary-50 hover:text-primary-600"
                             title="워크스페이스 생성"
@@ -427,11 +420,14 @@ export default function Sidebar() {
                                     const isActiveWorkspace = String(ws.id) === workspaceId;
 
                                     return (
-                                        <div key={ws.id} className="group relative">
+                                        <div
+                                            key={ws.id}
+                                            className="group relative flex items-center gap-2"
+                                        >
                                             <button
+                                                type="button"
                                                 onClick={() => void moveToWorkspace(ws.id)}
-                                                className={`flex w-full items-center justify-between rounded-2xl px-3 py-2.5 text-sm transition
-                                                ${
+                                                className={`flex min-w-0 flex-1 items-center rounded-2xl px-3 py-2.5 text-sm transition ${
                                                     isActiveWorkspace
                                                         ? "bg-primary-100 text-primary-700 shadow-sm"
                                                         : "text-slate-700 hover:bg-primary-50 hover:text-primary-700"
@@ -441,56 +437,77 @@ export default function Sidebar() {
                                                     <span className="h-2 w-2 rounded-full bg-primary-500" />
                                                     <span className="truncate">{ws.name}</span>
                                                 </span>
-
-                                                <span data-sidebar-menu className="flex items-center">
-                                                    <button
-                                                        data-sidebar-menu
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setConversationMenuOpenId(null);
-                                                            setWorkspaceMenuOpenId((prev) =>
-                                                                prev === ws.id ? null : ws.id
-                                                            );
-                                                        }}
-                                                        className={`rounded-lg p-1.5 transition
-                                                        ${
-                                                            workspaceMenuOpenId === ws.id
-                                                                ? "bg-white text-slate-700 shadow-sm"
-                                                                : "text-slate-400 opacity-0 group-hover:opacity-100 hover:bg-white hover:text-slate-700"
-                                                        }`}
-                                                    >
-                                                        <MoreHorizontal size={14} />
-                                                    </button>
-                                                </span>
                                             </button>
 
-                                            <AnimatePresence>
-                                                {workspaceMenuOpenId === ws.id && (
-                                                    <motion.div
-                                                        data-sidebar-menu
-                                                        initial={{ opacity: 0, scale: 0.95, y: -4 }}
-                                                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                                                        exit={{ opacity: 0, scale: 0.95, y: -4 }}
-                                                        className="absolute right-2 top-12 z-20 w-40 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_16px_40px_rgba(15,23,42,0.14)]"
-                                                    >
-                                                        <button
-                                                            onClick={() => openRenameWorkspaceModal(ws)}
-                                                            className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
-                                                        >
-                                                            <Pencil size={14} />
-                                                            이름 변경
-                                                        </button>
+                                            <div
+                                                data-sidebar-menu
+                                                className="relative flex shrink-0 items-center"
+                                            >
+                                                <button
+                                                    type="button"
+                                                    data-sidebar-menu
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setConversationMenuOpenId(null);
+                                                        setWorkspaceMenuOpenId((prev) =>
+                                                            prev === ws.id ? null : ws.id
+                                                        );
+                                                    }}
+                                                    className={`rounded-lg p-1.5 transition ${
+                                                        workspaceMenuOpenId === ws.id
+                                                            ? "bg-white text-slate-700 shadow-sm"
+                                                            : "text-slate-400 opacity-0 group-hover:opacity-100 hover:bg-white hover:text-slate-700"
+                                                    }`}
+                                                >
+                                                    <MoreHorizontal size={14} />
+                                                </button>
 
-                                                        <button
-                                                            onClick={() => openDeleteWorkspaceModal(ws)}
-                                                            className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-red-500 hover:bg-red-50"
+                                                <AnimatePresence>
+                                                    {workspaceMenuOpenId === ws.id && (
+                                                        <motion.div
+                                                            data-sidebar-menu
+                                                            initial={{
+                                                                opacity: 0,
+                                                                scale: 0.95,
+                                                                y: -4,
+                                                            }}
+                                                            animate={{
+                                                                opacity: 1,
+                                                                scale: 1,
+                                                                y: 0,
+                                                            }}
+                                                            exit={{
+                                                                opacity: 0,
+                                                                scale: 0.95,
+                                                                y: -4,
+                                                            }}
+                                                            className="absolute right-0 top-10 z-20 w-40 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_16px_40px_rgba(15,23,42,0.14)]"
                                                         >
-                                                            <Trash2 size={14} />
-                                                            삭제
-                                                        </button>
-                                                    </motion.div>
-                                                )}
-                                            </AnimatePresence>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    openRenameWorkspaceModal(ws)
+                                                                }
+                                                                className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+                                                            >
+                                                                <Pencil size={14} />
+                                                                이름 변경
+                                                            </button>
+
+                                                            <button
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    openDeleteWorkspaceModal(ws)
+                                                                }
+                                                                className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-red-500 hover:bg-red-50"
+                                                            >
+                                                                <Trash2 size={14} />
+                                                                삭제
+                                                            </button>
+                                                        </motion.div>
+                                                    )}
+                                                </AnimatePresence>
+                                            </div>
                                         </div>
                                     );
                                 })}
@@ -505,6 +522,7 @@ export default function Sidebar() {
                             <p className="px-2 text-[11px] font-bold text-slate-400">대화</p>
 
                             <button
+                                type="button"
                                 onClick={createConversation}
                                 className="rounded-lg p-2 text-slate-400 transition hover:bg-primary-50 hover:text-primary-600"
                                 title="새 대화"
@@ -515,12 +533,14 @@ export default function Sidebar() {
 
                         <div className="space-y-1">
                             {conversations.map((conversation) => (
-                                <div key={conversation.id} className="group relative">
+                                <div
+                                    key={conversation.id}
+                                    className="group relative flex items-center gap-2"
+                                >
                                     <NavLink
                                         to={`/workspace/${workspaceId}/conversation/${conversation.id}`}
                                         className={({ isActive }) =>
-                                            `flex items-center justify-between rounded-2xl px-3 py-2.5 text-sm transition
-                                            ${
+                                            `flex min-w-0 flex-1 items-center rounded-2xl px-3 py-2.5 text-sm transition ${
                                                 isActive
                                                     ? "bg-primary-100 text-primary-700 shadow-sm"
                                                     : "text-slate-700 hover:bg-slate-100"
@@ -530,57 +550,83 @@ export default function Sidebar() {
                                         <span className="truncate">
                                             {conversation.title || "제목 없음"}
                                         </span>
-
-                                        <span data-sidebar-menu className="flex items-center">
-                                            <button
-                                                data-sidebar-menu
-                                                onClick={(e) => {
-                                                    e.preventDefault();
-                                                    e.stopPropagation();
-                                                    setWorkspaceMenuOpenId(null);
-                                                    setConversationMenuOpenId((prev) =>
-                                                        prev === conversation.id ? null : conversation.id
-                                                    );
-                                                }}
-                                                className={`rounded-lg p-1.5 transition
-                                                ${
-                                                    conversationMenuOpenId === conversation.id
-                                                        ? "bg-white text-slate-700 shadow-sm"
-                                                        : "text-slate-400 opacity-0 group-hover:opacity-100 hover:bg-white hover:text-slate-700"
-                                                }`}
-                                            >
-                                                <MoreHorizontal size={14} />
-                                            </button>
-                                        </span>
                                     </NavLink>
 
-                                    <AnimatePresence>
-                                        {conversationMenuOpenId === conversation.id && (
-                                            <motion.div
-                                                data-sidebar-menu
-                                                initial={{ opacity: 0, scale: 0.95, y: -4 }}
-                                                animate={{ opacity: 1, scale: 1, y: 0 }}
-                                                exit={{ opacity: 0, scale: 0.95, y: -4 }}
-                                                className="absolute right-2 top-12 z-20 w-40 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_16px_40px_rgba(15,23,42,0.14)]"
-                                            >
-                                                <button
-                                                    onClick={() => openRenameConversationModal(conversation)}
-                                                    className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
-                                                >
-                                                    <Pencil size={14} />
-                                                    이름 변경
-                                                </button>
+                                    <div
+                                        data-sidebar-menu
+                                        className="relative flex shrink-0 items-center"
+                                    >
+                                        <button
+                                            type="button"
+                                            data-sidebar-menu
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setWorkspaceMenuOpenId(null);
+                                                setConversationMenuOpenId((prev) =>
+                                                    prev === conversation.id
+                                                        ? null
+                                                        : conversation.id
+                                                );
+                                            }}
+                                            className={`rounded-lg p-1.5 transition ${
+                                                conversationMenuOpenId === conversation.id
+                                                    ? "bg-white text-slate-700 shadow-sm"
+                                                    : "text-slate-400 opacity-0 group-hover:opacity-100 hover:bg-white hover:text-slate-700"
+                                            }`}
+                                        >
+                                            <MoreHorizontal size={14} />
+                                        </button>
 
-                                                <button
-                                                    onClick={() => openDeleteConversationModal(conversation)}
-                                                    className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-red-500 hover:bg-red-50"
+                                        <AnimatePresence>
+                                            {conversationMenuOpenId === conversation.id && (
+                                                <motion.div
+                                                    data-sidebar-menu
+                                                    initial={{
+                                                        opacity: 0,
+                                                        scale: 0.95,
+                                                        y: -4,
+                                                    }}
+                                                    animate={{
+                                                        opacity: 1,
+                                                        scale: 1,
+                                                        y: 0,
+                                                    }}
+                                                    exit={{
+                                                        opacity: 0,
+                                                        scale: 0.95,
+                                                        y: -4,
+                                                    }}
+                                                    className="absolute right-0 top-10 z-20 w-40 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_16px_40px_rgba(15,23,42,0.14)]"
                                                 >
-                                                    <Trash2 size={14} />
-                                                    삭제
-                                                </button>
-                                            </motion.div>
-                                        )}
-                                    </AnimatePresence>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                            openRenameConversationModal(
+                                                                conversation
+                                                            )
+                                                        }
+                                                        className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+                                                    >
+                                                        <Pencil size={14} />
+                                                        이름 변경
+                                                    </button>
+
+                                                    <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                            openDeleteConversationModal(
+                                                                conversation
+                                                            )
+                                                        }
+                                                        className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-red-500 hover:bg-red-50"
+                                                    >
+                                                        <Trash2 size={14} />
+                                                        삭제
+                                                    </button>
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
+                                    </div>
                                 </div>
                             ))}
                         </div>
@@ -592,8 +638,7 @@ export default function Sidebar() {
                         <NavLink
                             to="/settings"
                             className={({ isActive }) =>
-                                `flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition
-                                ${
+                                `flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition ${
                                     isActive
                                         ? "bg-primary-100 text-primary-700"
                                         : "text-slate-700 hover:bg-slate-100"
@@ -607,8 +652,7 @@ export default function Sidebar() {
                         <NavLink
                             to="/help"
                             className={({ isActive }) =>
-                                `flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition
-                                ${
+                                `flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition ${
                                     isActive
                                         ? "bg-primary-100 text-primary-700"
                                         : "text-slate-700 hover:bg-slate-100"
@@ -641,6 +685,7 @@ export default function Sidebar() {
                                 </div>
 
                                 <button
+                                    type="button"
                                     onClick={handleLogout}
                                     className="mt-4 w-full rounded-xl bg-red-500 py-2 text-xs font-bold text-white transition hover:bg-red-600"
                                 >
@@ -699,4 +744,3 @@ export default function Sidebar() {
         </>
     );
 }
-
