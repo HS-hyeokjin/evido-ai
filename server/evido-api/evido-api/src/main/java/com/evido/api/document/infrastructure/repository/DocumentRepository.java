@@ -22,4 +22,10 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
             Pageable pageable
     );
 
+    boolean existsByWorkspaceIdAndOwnerUserIdAndStatusAndTitle(
+            Long workspaceId,
+            String ownerUserId,
+            String status,
+            String title
+    );
 }
