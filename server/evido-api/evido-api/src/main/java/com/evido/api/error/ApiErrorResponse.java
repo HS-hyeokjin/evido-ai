@@ -7,7 +7,6 @@ import java.time.LocalDateTime;
 @Getter
 @Builder
 public class ApiErrorResponse {
-
     private int status;
     private String message;
     private String path;
