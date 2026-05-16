@@ -147,34 +147,7 @@
 
 ## 5. 전체 시스템 구조
 
-```text
-[사용자]
-   |
-   v
-[React Frontend]
-   |
-   | REST API / Cookie 인증
-   v
-[Spring Boot API Server]
-   |
-   | 사용자, 워크스페이스, 문서, 대화, 메시지 관리
-   |
-   +--------------------+
-   |                    |
-   v                    v
-[MySQL / MariaDB]     [Redis]
-   |
-   |
-   v
-[RAG Server - FastAPI]
-   |
-   | 문서 청크 검색 / 답변 생성
-   v
-[Qdrant Vector DB]
-   |
-   v
-[LLM Provider]
-```
+<img width="1565" height="752" alt="제목 없는 다이어그램 drawio" src="https://github.com/user-attachments/assets/47b8963c-0838-455b-bcf1-9ea70ef0ad19" />
 
 ---
 
