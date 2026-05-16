@@ -149,6 +149,72 @@
 
 <img width="1565" height="752" alt="제목 없는 다이어그램 drawio" src="https://github.com/user-attachments/assets/47b8963c-0838-455b-bcf1-9ea70ef0ad19" />
 
+## 시스템 아키텍처 설명
+
+EVIDO는 사용자가 업로드한 문서를 기반으로 질문에 답변하고, 답변의 근거까지 제공하는 문서 기반 AI 질의응답 서비스입니다. 전체 시스템은 크게 **Client / Frontend**, **Backend API**, **AI / RAG**, **Data / Storage**, **CI/CD & Infra** 영역으로 구성됩니다.
+
+### 1. Client / Frontend
+
+사용자는 브라우저를 통해 EVIDO에 접속합니다.  
+프론트엔드는 React 기반으로 구현되었으며, Vite를 사용해 빠른 개발 환경과 빌드 환경을 구성했습니다. Tailwind CSS를 활용하여 UI를 구성하고, PDF Viewer / Export 기능을 통해 사용자가 업로드한 문서를 화면에서 확인할 수 있도록 설계했습니다.
+
+프론트엔드는 사용자 질문, 문서 조회, 문서 업로드, 대화 조회 등의 요청을 백엔드 API 서버로 전달합니다.
+
+### 2. Backend API
+
+백엔드 API 서버는 EVIDO의 핵심 비즈니스 로직을 담당합니다.  
+외부 요청은 NGINX Reverse Proxy를 통해 Spring Boot API Server로 전달됩니다.
+
+Spring Boot 서버는 다음과 같은 역할을 수행합니다.
+
+- 사용자 인증 및 인가 처리
+- 워크스페이스 관리
+- 문서 메타데이터 관리
+- 대화 및 메시지 저장
+- 문서 기반 질문 요청 처리
+- RAG 서버와의 연동
+- 데이터베이스 및 캐시 저장소와의 연동
+
+Spring Security를 통해 인증과 권한 검사를 수행하며, Spring Data JPA를 통해 MariaDB 또는 RDS와 데이터를 주고받습니다.  
+서버는 Docker Container로 패키징하여 배포 환경에서 일관되게 실행될 수 있도록 구성했습니다.
+
+### 3. AI / RAG
+
+AI / RAG 영역은 사용자의 질문에 대해 문서 기반 답변을 생성하는 역할을 담당합니다.  
+Spring Boot API 서버에서 질문 요청을 받으면 FastAPI 기반 RAG Server로 전달됩니다.
+
+RAG 서버는 질문을 임베딩하고, Qdrant Vector DB에서 관련 문서 청크를 검색합니다.  
+검색된 문서 조각은 LLM에 전달할 근거 Context로 조립되며, Ollama 또는 Gemini와 같은 LLM을 통해 최종 답변이 생성됩니다.
+
+이 구조를 통해 EVIDO는 단순한 일반 AI 답변이 아니라, 사용자가 업로드한 문서 내용을 기반으로 한 근거 있는 답변을 제공할 수 있습니다.
+
+### 4. Data / Storage
+
+EVIDO는 서비스 데이터와 문서 데이터를 목적에 따라 분리하여 저장합니다.
+
+- **MariaDB**: 문서 메타데이터, 사용자, 워크스페이스, 대화 정보 저장
+- **Redis**: 인증 토큰, 세션, 캐시 데이터 저장
+- **AWS S3**: 업로드된 원본 문서 파일 저장
+- **AWS RDS**: 운영 환경에서 사용하는 관리형 관계형 데이터베이스
+
+문서 원본은 S3에 저장하고, 문서 정보와 대화 기록은 관계형 데이터베이스에 저장합니다.  
+Redis는 빠른 조회가 필요한 인증 정보나 캐시 데이터를 관리하는 데 사용됩니다.
+
+### 5. CI/CD & Infra
+
+EVIDO는 GitHub에 저장된 코드를 기반으로 자동 배포 환경을 구성합니다.  
+현재 구조에서는 GitHub, Jenkins, Docker, AWS EC2, NGINX를 활용한 배포 흐름을 나타냅니다.
+
+배포 흐름은 다음과 같습니다.
+
+```text
+GitHub
+→ Jenkins
+→ Docker Build & Push
+→ AWS EC2
+→ NGINX Reverse Proxy
+→ Production
+
 ---
 
 ## 6. 아키텍처 설계
