@@ -11,12 +11,6 @@ export default function SettingsPage() {
 
     return (
         <div className="mx-auto max-w-5xl space-y-6">
-            <div>
-                <h1 className="text-2xl font-extrabold text-slate-800">설정</h1>
-                <p className="mt-1 text-sm text-slate-500">
-                    EVIDO 계정 및 시스템 설정을 관리합니다
-                </p>
-            </div>
 
             <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                 <div className="mb-4 flex items-center gap-2">

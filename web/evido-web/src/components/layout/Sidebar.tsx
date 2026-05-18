@@ -6,7 +6,6 @@ import useAuth from "../../hooks/useAuth";
 import api from "../../api/client";
 import {
     LayoutDashboard,
-    Settings,
     HelpCircle,
     ChevronDown,
     ChevronRight,
@@ -628,19 +627,6 @@ export default function Sidebar() {
 
                 <div className="mt-auto pt-4">
                     <div className="space-y-1 bg-white/60 p-2">
-                        <NavLink
-                            to="/settings"
-                            className={({ isActive }) =>
-                                `flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition ${
-                                    isActive
-                                        ? "bg-primary-100 text-primary-700"
-                                        : "text-slate-700 hover:bg-slate-100"
-                                }`
-                            }
-                        >
-                            <Settings size={16} />
-                            설정
-                        </NavLink>
 
                         <NavLink
                             to="/help"
