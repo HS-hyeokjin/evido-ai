@@ -1,0 +1,119 @@
+pipeline {
+    agent any
+
+    stages {
+        stage('Checkout') {
+            steps {
+                git branch: 'main',
+                    url: 'https://github.com/HS-hyeokjin/evido-ai'
+            }
+        }
+
+        stage('Prepare Docker Network') {
+            steps {
+                sh '''
+                docker network create evido-net || true
+                '''
+            }
+        }
+
+        stage('Prepare Infra Containers') {
+            steps {
+                sh '''
+                # Redis
+                if docker ps -a --format '{{.Names}}' | grep -w redis; then
+                  docker start redis || true
+                  docker network connect evido-net redis || true
+                else
+                  docker run -d \
+                    --name redis \
+                    --network evido-net \
+                    --restart unless-stopped \
+                    redis:7
+                fi
+
+                # Qdrant
+                if docker ps -a --format '{{.Names}}' | grep -w qdrant; then
+                  docker start qdrant || true
+                  docker network connect evido-net qdrant || true
+                else
+                  docker run -d \
+                    --name qdrant \
+                    --network evido-net \
+                    --restart unless-stopped \
+                    -p 6333:6333 \
+                    -p 6334:6334 \
+                    -v /home/ubuntu/qdrant_storage:/qdrant/storage \
+                    qdrant/qdrant
+                fi
+                '''
+            }
+        }
+
+        stage('Build Spring Docker') {
+            steps {
+                sh '''
+                cd server/evido-api/evido-api
+                docker build -t evido-app .
+                '''
+            }
+        }
+
+        stage('Build RAG Docker') {
+            steps {
+                sh '''
+                cd server/evido-api/evido-rag
+                docker build -t evido-rag .
+                '''
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                sh '''
+                docker rm -f evido || true
+                docker rm -f evido-rag || true
+
+                docker run -d \
+                  --name evido-rag \
+                  --network evido-net \
+                  --restart unless-stopped \
+                  -p 8000:8000 \
+                  --env-file /home/ubuntu/evido-rag.env \
+                  -e QDRANT_HOST=qdrant \
+                  -e QDRANT_PORT=6333 \
+                  evido-rag
+
+                docker run -d \
+                  --name evido \
+                  --network evido-net \
+                  --restart unless-stopped \
+                  -p 8080:8080 \
+                  --env-file /home/ubuntu/evido.env \
+                  -e SPRING_PROFILES_ACTIVE=prod \
+                  evido-app
+                '''
+            }
+        }
+
+        stage('Health Check') {
+            steps {
+                sh '''
+                sleep 10
+
+                echo "=== Docker containers ==="
+                docker ps -a
+
+                echo "=== Qdrant check ==="
+                curl -f http://localhost:6333/collections || exit 1
+
+                echo "=== RAG check ==="
+                curl -f http://localhost:8000/docs || exit 1
+
+                echo "=== Spring check ==="
+                curl -f http://localhost:8080 || true
+                '''
+            }
+        }
+    }
+}
