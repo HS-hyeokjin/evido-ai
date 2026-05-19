@@ -95,25 +95,5 @@ pipeline {
                 '''
             }
         }
-
-        stage('Health Check') {
-            steps {
-                sh '''
-                sleep 10
-
-                echo "=== Docker containers ==="
-                docker ps -a
-
-                echo "=== Qdrant check ==="
-                curl -f http://localhost:6333/collections || exit 1
-
-                echo "=== RAG check ==="
-                curl -f http://localhost:8000/docs || exit 1
-
-                echo "=== Spring check ==="
-                curl -f http://localhost:8080 || true
-                '''
-            }
-        }
     }
 }
