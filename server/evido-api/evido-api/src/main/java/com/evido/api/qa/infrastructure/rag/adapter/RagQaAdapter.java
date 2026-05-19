@@ -3,7 +3,7 @@ package com.evido.api.qa.infrastructure.rag.adapter;
 import com.evido.api.qa.application.port.in.command.AskCommand;
 import com.evido.api.qa.infrastructure.rag.dto.RagAnswerRequest;
 import com.evido.api.qa.infrastructure.rag.dto.RagAnswerResponse;
-import com.evido.api.qa.infrastructure.rag.port.RagPort;
+import com.evido.api.qa.application.port.out.RagPort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
