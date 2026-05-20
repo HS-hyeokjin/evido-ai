@@ -3,6 +3,7 @@ package com.evido.api.auth.infrastructure.security;
 import com.evido.api.auth.api.controller.OAuth2SuccessHandler;
 import com.evido.api.auth.application.port.in.IssueTokenUseCase;
 import com.evido.api.auth.application.port.out.TokenProviderPort;
+import com.evido.api.auth.infrastructure.cookie.AuthCookieManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -61,7 +62,10 @@ public class AuthSecurityConfig {
     }
 
     @Bean
-    public OAuth2SuccessHandler oAuth2SuccessHandler(IssueTokenUseCase issueUserTokenUseCase) {
-        return new OAuth2SuccessHandler(issueUserTokenUseCase);
+    public OAuth2SuccessHandler oAuth2SuccessHandler(
+            IssueTokenUseCase issueTokenUseCase,
+            AuthCookieManager cookieManager
+    ) {
+        return new OAuth2SuccessHandler(issueTokenUseCase, cookieManager);
     }
 }
