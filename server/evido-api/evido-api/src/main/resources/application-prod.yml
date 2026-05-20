@@ -67,3 +67,6 @@ springdoc:
     enabled: false
   api-docs:
     enabled: false
+
+server:
+  forward-headers-strategy: framework
