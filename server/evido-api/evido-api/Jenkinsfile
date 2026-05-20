@@ -1,14 +1,17 @@
 pipeline {
     agent any
 
-    stages {
-        stage('Checkout') {
-            steps {
-                git branch: 'main',
-                    url: 'https://github.com/HS-hyeokjin/evido-ai'
-            }
-        }
+    options {
+        disableConcurrentBuilds()
+    }
 
+    environment {
+        EC2_HOST = '172.31.7.44'
+        EC2_USER = 'ubuntu'
+        SWITCH_SCRIPT = '/home/ubuntu/switch-evido-backend.sh'
+    }
+
+    stages {
         stage('Prepare Docker Network') {
             steps {
                 sh '''
@@ -68,10 +71,9 @@ pipeline {
             }
         }
 
-        stage('Deploy') {
+        stage('Deploy RAG') {
             steps {
                 sh '''
-                docker rm -f evido || true
                 docker rm -f evido-rag || true
 
                 docker run -d \
@@ -84,15 +86,73 @@ pipeline {
                   -e QDRANT_PORT=6333 \
                   evido-rag
 
-                docker run -d \
-                  --name evido \
-                  --network evido-net \
-                  --restart unless-stopped \
-                  -p 8080:8080 \
-                  --env-file /home/ubuntu/evido.env \
-                  -e SPRING_PROFILES_ACTIVE=prod \
-                  evido-app
+                echo "Waiting for RAG..."
+                sleep 15
+
+                docker run --rm --network evido-net curlimages/curl:latest \
+                  -f http://evido-rag:8000/docs
                 '''
+            }
+        }
+
+        stage('Deploy Spring Blue-Green') {
+            steps {
+                sshagent(credentials: ['evido-ec2-key']) {
+                    sh '''
+                    CURRENT_PORT=$(ssh -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} "grep -oE '8081|8082' /etc/nginx/snippets/evido-backend.conf | head -n 1 || true")
+
+                    if [ "$CURRENT_PORT" = "8081" ]; then
+                      ACTIVE=blue
+                      IDLE=green
+                      IDLE_PORT=8082
+                    else
+                      ACTIVE=green
+                      IDLE=blue
+                      IDLE_PORT=8081
+                    fi
+
+                    echo "CURRENT_PORT=$CURRENT_PORT"
+                    echo "ACTIVE=$ACTIVE"
+                    echo "IDLE=$IDLE"
+                    echo "IDLE_PORT=$IDLE_PORT"
+
+                    docker rm -f evido-$IDLE || true
+
+                    docker run -d \
+                      --name evido-$IDLE \
+                      --network evido-net \
+                      --restart unless-stopped \
+                      -p $IDLE_PORT:8080 \
+                      --env-file /home/ubuntu/evido.env \
+                      -e SPRING_PROFILES_ACTIVE=prod \
+                      evido-app
+
+                    echo "Waiting for Spring $IDLE..."
+
+                    for i in $(seq 1 30); do
+                      if docker run --rm --network evido-net curlimages/curl:latest \
+                        -I http://evido-$IDLE:8080; then
+                        echo "Spring $IDLE is ready"
+                        break
+                      fi
+
+                      echo "Waiting... $i"
+                      sleep 3
+
+                      if [ "$i" = "30" ]; then
+                        echo "Spring $IDLE health check failed"
+                        docker logs --tail 100 evido-$IDLE
+                        exit 1
+                      fi
+                    done
+
+                    echo "Switch Nginx to $IDLE_PORT"
+                    ssh -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} "${SWITCH_SCRIPT} $IDLE_PORT"
+
+                    echo "Blue-Green deploy success. Active is now $IDLE"
+                    docker ps -a
+                    '''
+                }
             }
         }
     }
