@@ -14,6 +14,8 @@ import {
     Pencil,
     Plus,
     MessageSquarePlus,
+    UserRound,
+    LogOut,
 } from "lucide-react";
 import type { Workspace } from "../../types/Workspace";
 import type { Conversation } from "../../types/Conversation";
@@ -188,8 +190,9 @@ export default function Sidebar() {
                 setInputModal({ open: false });
 
                 if (createdWorkspaceId) {
-                    await moveToWorkspace(createdWorkspaceId);
+                    moveToWorkspace(createdWorkspaceId);
                 }
+
                 return;
             }
 
@@ -200,7 +203,9 @@ export default function Sidebar() {
 
                 setWorkspaces((prev) =>
                     prev.map((item) =>
-                        item.id === inputModal.workspace!.id ? { ...item, name: value } : item
+                        item.id === inputModal.workspace!.id
+                            ? { ...item, name: value }
+                            : item
                     )
                 );
 
@@ -215,7 +220,9 @@ export default function Sidebar() {
 
                 setConversations((prev) =>
                     prev.map((item) =>
-                        item.id === inputModal.conversation!.id ? { ...item, title: value } : item
+                        item.id === inputModal.conversation!.id
+                            ? { ...item, title: value }
+                            : item
                     )
                 );
 
@@ -243,6 +250,7 @@ export default function Sidebar() {
                 const nextConversations = conversations.filter(
                     (item) => item.id !== targetConversationId
                 );
+
                 setConversations(nextConversations);
                 setConfirmModal({ open: false });
 
@@ -267,6 +275,7 @@ export default function Sidebar() {
                 await api.delete(`/api/workspaces/${targetWorkspaceId}`);
 
                 const remaining = workspaces.filter((item) => item.id !== targetWorkspaceId);
+
                 setWorkspaces(remaining);
                 setConfirmModal({ open: false });
 
@@ -277,7 +286,7 @@ export default function Sidebar() {
                 }
 
                 if (remaining.length > 0) {
-                    await moveToWorkspace(remaining[0].id);
+                    moveToWorkspace(remaining[0].id);
                     return;
                 }
 
@@ -331,8 +340,14 @@ export default function Sidebar() {
     };
 
     const handleLogout = async () => {
-        await api.post("/api/auth/logout");
-        window.location.reload();
+        try {
+            await api.post("/api/auth/logout");
+            navigate("/", { replace: true });
+            window.location.reload();
+        } catch (error) {
+            console.error(error);
+            alert("로그아웃에 실패했습니다.");
+        }
     };
 
     return (
@@ -418,7 +433,7 @@ export default function Sidebar() {
                                         >
                                             <button
                                                 type="button"
-                                                onClick={() => void moveToWorkspace(ws.id)}
+                                                onClick={() => moveToWorkspace(ws.id)}
                                                 className={`flex min-w-0 flex-1 items-center rounded-2xl px-3 py-2.5 text-sm transition ${
                                                     isActiveWorkspace
                                                         ? "bg-primary-100 text-primary-700 shadow-sm"
@@ -627,7 +642,6 @@ export default function Sidebar() {
 
                 <div className="mt-auto pt-4">
                     <div className="space-y-1 bg-white/60 p-2">
-
                         <NavLink
                             to="/help"
                             className={({ isActive }) =>
@@ -643,51 +657,67 @@ export default function Sidebar() {
                         </NavLink>
                     </div>
 
-                    <div className="rounded-2xl border bg-white/80 px-4 py-4 shadow-md backdrop-blur">
+                    <div className="rounded-3xl border border-slate-200 bg-white/85 p-3 shadow-sm backdrop-blur">
                         {loading ? (
-                            <div className="animate-pulse text-xs text-slate-400">
-                                인증 확인 중...
+                            <div className="flex items-center gap-3 rounded-2xl bg-slate-50 px-3 py-3">
+                                <div className="h-9 w-9 animate-pulse rounded-full bg-slate-200" />
+                                <div className="flex-1 space-y-2">
+                                    <div className="h-3 w-20 animate-pulse rounded bg-slate-200" />
+                                    <div className="h-2 w-28 animate-pulse rounded bg-slate-100" />
+                                </div>
                             </div>
                         ) : isUser ? (
-                            <>
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <div className="text-sm font-bold text-slate-800">
-                                            {user.principal}
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-3 rounded-2xl bg-primary-50 px-3 py-3">
+                                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-primary-600 shadow-sm">
+                                        <UserRound size={19} />
+                                    </div>
+
+                                    <div className="min-w-0 flex-1">
+                                        <div className="truncate text-sm font-bold text-slate-800">
+                                            로그인됨
                                         </div>
-                                        <div className="text-xs text-slate-500">
-                                            Premium User
+                                        <div className="truncate text-xs text-slate-500">
+                                            Google 계정 연결 완료
                                         </div>
                                     </div>
 
-                                    <div className="h-2 w-2 animate-pulse rounded-full bg-green-500" />
+                                    <div className="h-2.5 w-2.5 rounded-full bg-green-500 shadow-[0_0_0_3px_rgba(34,197,94,0.15)]" />
                                 </div>
 
                                 <button
                                     type="button"
                                     onClick={handleLogout}
-                                    className="mt-4 w-full rounded-xl bg-red-500 py-2 text-xs font-bold text-white transition hover:bg-red-600"
+                                    className="flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-bold text-slate-600 transition hover:border-red-200 hover:bg-red-50 hover:text-red-500 active:scale-[0.98]"
                                 >
+                                    <LogOut size={15} />
                                     로그아웃
                                 </button>
-                            </>
+                            </div>
                         ) : (
-                            <>
-                                <div className="text-sm font-bold text-slate-700">
-                                    {isGuest ? "Guest 사용자" : "비로그인"}
-                                </div>
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-3 rounded-2xl bg-slate-50 px-3 py-3">
+                                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-slate-500 shadow-sm">
+                                        <UserRound size={19} />
+                                    </div>
 
-                                <div className="mt-1 text-[11px] text-slate-500">
-                                    Google 로그인으로 업그레이드
+                                    <div className="min-w-0 flex-1">
+                                        <div className="text-sm font-bold text-slate-700">
+                                            {isGuest ? "게스트 사용 중" : "로그인이 필요합니다"}
+                                        </div>
+                                        <div className="mt-0.5 text-xs text-slate-500">
+                                            Google 계정으로 계속하기
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <a
                                     href={`${API_BASE}/oauth2/authorization/google`}
-                                    className="mt-3 inline-block w-full rounded-xl bg-primary-500 px-3 py-2 text-center text-xs font-bold text-white transition hover:bg-primary-600 active:scale-[0.98]"
+                                    className="flex w-full items-center justify-center rounded-2xl bg-primary-500 px-3 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-primary-600 active:scale-[0.98]"
                                 >
                                     Google 로그인
                                 </a>
-                            </>
+                            </div>
                         )}
                     </div>
                 </div>
