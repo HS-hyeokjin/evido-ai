@@ -1,4 +1,4 @@
-package com.evido.api.error;
+package com.evido.api.common.exception;
 
 import lombok.Getter;
 
@@ -11,4 +11,14 @@ public class BusinessException extends RuntimeException {
         super(errorCode.getMessage());
         this.errorCode = errorCode;
     }
+
+    public BusinessException(ErrorCode errorCode, String message) {
+        super(message);
+        this.errorCode = errorCode;
+    }
+
+    public ErrorCode getErrorCode() {
+        return errorCode;
+    }
+
 }
