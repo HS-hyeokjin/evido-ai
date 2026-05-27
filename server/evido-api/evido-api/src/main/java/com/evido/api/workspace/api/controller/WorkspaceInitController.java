@@ -1,6 +1,7 @@
 package com.evido.api.workspace.api.controller;
 
 import com.evido.api.auth.infrastructure.security.CurrentUserProvider;
+import com.evido.api.common.response.CommonResponse;
 import com.evido.api.workspace.api.dto.response.WorkspaceInitResponse;
 import com.evido.api.workspace.api.mapper.WorkspaceInitResponseMapper;
 import com.evido.api.workspace.application.dto.WorkspaceInitResult;
@@ -38,14 +39,15 @@ public class WorkspaceInitController {
             @ApiResponse(responseCode = "401", description = "인증 필요")
     })
     @GetMapping("/init")
-    public WorkspaceInitResponse init(
+    public CommonResponse<WorkspaceInitResponse> init(
             @Parameter(hidden = true)
             Authentication authentication
     ) {
         String userId = currentUserProvider.getUserId(authentication);
 
         WorkspaceInitResult result = workspaceInitUseCase.init(userId);
+        WorkspaceInitResponse response = WorkspaceInitResponseMapper.from(result);
 
-        return WorkspaceInitResponseMapper.from(result);
+        return CommonResponse.success(response);
     }
 }

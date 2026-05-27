@@ -1,6 +1,7 @@
 package com.evido.api.workspace.api.controller;
 
 import com.evido.api.auth.infrastructure.security.CurrentUserProvider;
+import com.evido.api.common.response.CommonResponse;
 import com.evido.api.workspace.api.dto.request.WorkspaceCreateRequest;
 import com.evido.api.workspace.api.dto.request.WorkspaceUpdateRequest;
 import com.evido.api.workspace.api.dto.response.WorkspaceResponse;
@@ -46,8 +47,9 @@ public class WorkspaceController {
             @ApiResponse(responseCode = "400", description = "잘못된 요청"),
             @ApiResponse(responseCode = "401", description = "인증 필요")
     })
+
     @PostMapping
-    public WorkspaceResponse create(
+    public CommonResponse<WorkspaceResponse> create(
             @io.swagger.v3.oas.annotations.parameters.RequestBody(
                     description = "워크스페이스 생성 요청",
                     required = true
@@ -69,7 +71,9 @@ public class WorkspaceController {
         );
 
         WorkspaceResult result = workspaceUseCase.create(command);
-        return WorkspaceResponseMapper.from(result);
+        WorkspaceResponse response = WorkspaceResponseMapper.from(result);
+
+        return CommonResponse.success("워크스페이스가 생성되었습니다.", response);
     }
 
     @Operation(
@@ -84,17 +88,19 @@ public class WorkspaceController {
             ),
             @ApiResponse(responseCode = "401", description = "인증 필요")
     })
+
     @GetMapping
-    public List<WorkspaceResponse> list(
-            @Parameter(hidden = true)
-            Authentication authentication
+    public CommonResponse<List<WorkspaceResponse>> list(
+            @Parameter(hidden = true) Authentication authentication
     ) {
         String userId = currentUserProvider.getUserId(authentication);
 
-        return workspaceUseCase.findAll(userId)
+        List<WorkspaceResponse> response = workspaceUseCase.findAll(userId)
                 .stream()
                 .map(WorkspaceResponseMapper::from)
                 .toList();
+
+        return CommonResponse.success(response);
     }
 
     @Operation(
@@ -113,7 +119,7 @@ public class WorkspaceController {
             @ApiResponse(responseCode = "404", description = "워크스페이스를 찾을 수 없음")
     })
     @PatchMapping("/{workspaceId}")
-    public WorkspaceResponse update(
+    public CommonResponse<WorkspaceResponse> update(
             @Parameter(description = "워크스페이스 ID", example = "1")
             @PathVariable Long workspaceId,
 
@@ -135,7 +141,9 @@ public class WorkspaceController {
         );
 
         WorkspaceResult result = workspaceUseCase.update(command);
-        return WorkspaceResponseMapper.from(result);
+        WorkspaceResponse response = WorkspaceResponseMapper.from(result);
+
+        return CommonResponse.success("워크스페이스가 수정되었습니다.", response);
     }
 
     @Operation(
@@ -149,7 +157,7 @@ public class WorkspaceController {
             @ApiResponse(responseCode = "404", description = "워크스페이스를 찾을 수 없음")
     })
     @DeleteMapping("/{workspaceId}")
-    public void delete(
+    public CommonResponse<Void> delete(
             @Parameter(description = "워크스페이스 ID", example = "1")
             @PathVariable Long workspaceId,
 
@@ -164,5 +172,7 @@ public class WorkspaceController {
         );
 
         workspaceUseCase.delete(command);
+
+        return CommonResponse.<Void>success("워크스페이스가 삭제되었습니다.", null);
     }
 }

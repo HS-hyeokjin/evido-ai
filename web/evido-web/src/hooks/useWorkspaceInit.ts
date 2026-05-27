@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../api/client";
+import type { CommonResponse } from "../types/ApiResponse";
+import type { WorkspaceInit } from "../types/WorkspaceInit";
 
 interface UseWorkspaceInitOptions {
     enabled: boolean;
@@ -32,6 +34,7 @@ export default function useWorkspaceInit({ enabled, user }: UseWorkspaceInitOpti
         if (requestedRef.current) {
             return;
         }
+
         requestedRef.current = true;
 
         let cancelled = false;
@@ -40,25 +43,16 @@ export default function useWorkspaceInit({ enabled, user }: UseWorkspaceInitOpti
             try {
                 setLoading(true);
 
-                const res = await api.get("/api/workspaces/init");
+                const res = await api.get<CommonResponse<WorkspaceInit>>(
+                    "/api/workspaces/init"
+                );
 
-                const nextWorkspaceId = res.data?.workspaceId;
-                const nextConversationId =
-                    res.data?.conversationId ?? res.data?.chatId;
+                const nextWorkspaceId = res.data.data.workspaceId;
 
                 if (cancelled) return;
 
-                if (nextWorkspaceId && nextConversationId) {
-                    navigate(
-                        `/workspace/${nextWorkspaceId}/conversation/${nextConversationId}`,
-                        { replace: true }
-                    );
-                    return;
-                }
-
                 if (nextWorkspaceId) {
                     navigate(`/workspace/${nextWorkspaceId}`, { replace: true });
-                    return;
                 }
             } catch (error) {
                 console.error("워크스페이스 초기화 실패:", error);

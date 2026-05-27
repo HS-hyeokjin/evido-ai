@@ -3,15 +3,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import { listDocuments } from "../../api/documents";
 import api from "../../api/client";
 import { motion } from "framer-motion";
-import {
-    MessageSquareText,
-    Plus,
-    UploadCloud,
-    FileText,
-    Sparkles,
-    ChevronRight,
-    FolderOpen,
-} from "lucide-react";
+import { MessageSquareText, Plus, UploadCloud, FileText, Sparkles, ChevronRight, FolderOpen } from "lucide-react";
+import type {CommonResponse} from "../../types/ApiResponse.ts";
 
 interface Conversation {
     id: number;
@@ -45,7 +38,9 @@ export default function ConversationListPage() {
             const workspaceIdNumber = Number(workspaceId);
 
             const [conversationRes, docPage] = await Promise.all([
-                api.get(`/api/conversations/${workspaceId}/conversations`),
+                api.get<CommonResponse<Conversation[]>>(
+                    `/api/conversations/${workspaceId}/conversations`
+                ),
                 listDocuments(workspaceIdNumber, {
                     page: 0,
                     size: 5,
@@ -53,7 +48,7 @@ export default function ConversationListPage() {
                 }),
             ]);
 
-            setConversations(conversationRes.data ?? []);
+            setConversations(conversationRes.data.data ?? []);
             setDocuments(
                 (docPage.content ?? []).map((doc) => ({
                     documentId: doc.documentId,

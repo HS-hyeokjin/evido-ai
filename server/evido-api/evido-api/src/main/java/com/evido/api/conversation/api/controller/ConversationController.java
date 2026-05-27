@@ -1,6 +1,7 @@
 package com.evido.api.conversation.api.controller;
 
 import com.evido.api.auth.infrastructure.security.CurrentUserProvider;
+import com.evido.api.common.response.CommonResponse;
 import com.evido.api.conversation.api.dto.request.ConversationUpdateRequest;
 import com.evido.api.conversation.api.dto.request.MessageRequest;
 import com.evido.api.conversation.api.dto.response.ConversationResponse;
@@ -50,7 +51,7 @@ public class ConversationController {
             @ApiResponse(responseCode = "404", description = "워크스페이스를 찾을 수 없음")
     })
     @GetMapping("/{workspaceId}/conversations")
-    public List<ConversationResponse> getConversation(
+    public CommonResponse<List<ConversationResponse>> getConversation(
             @Parameter(description = "워크스페이스 ID", example = "1")
             @PathVariable Long workspaceId,
             @Parameter(hidden = true)
@@ -60,10 +61,12 @@ public class ConversationController {
 
         var query = new GetConversationsQuery(workspaceId, userId);
 
-        return conversationUseCase.getConversation(query)
+        List<ConversationResponse> response = conversationUseCase.getConversation(query)
                 .stream()
                 .map(ConversationResponseMapper::from)
                 .toList();
+
+        return CommonResponse.success(response);
     }
 
     @Operation(
@@ -76,7 +79,7 @@ public class ConversationController {
             @ApiResponse(responseCode = "403", description = "워크스페이스 접근 권한 없음")
     })
     @PostMapping("/{workspaceId}/conversations")
-    public ConversationResponse createConversation(
+    public CommonResponse<ConversationResponse> createConversation(
             @Parameter(description = "워크스페이스 ID", example = "1")
             @PathVariable Long workspaceId,
             @Parameter(hidden = true)
@@ -86,9 +89,11 @@ public class ConversationController {
 
         var command = new CreateConversationCommand(workspaceId, userId);
 
-        return ConversationResponseMapper.from(
+        ConversationResponse response = ConversationResponseMapper.from(
                 conversationUseCase.createConversation(command)
         );
+
+        return CommonResponse.success("대화가 생성되었습니다.", response);
     }
 
     @Operation(
@@ -103,7 +108,7 @@ public class ConversationController {
             @ApiResponse(responseCode = "404", description = "대화를 찾을 수 없음")
     })
     @PatchMapping("/{conversationId}")
-    public ConversationResponse updateConversation(
+    public CommonResponse<ConversationResponse> updateConversation(
             @Parameter(description = "대화 ID", example = "10")
             @PathVariable Long conversationId,
             @io.swagger.v3.oas.annotations.parameters.RequestBody(
@@ -122,9 +127,11 @@ public class ConversationController {
                 request.title()
         );
 
-        return ConversationResponseMapper.from(
+        ConversationResponse response = ConversationResponseMapper.from(
                 conversationUseCase.updateConversation(command)
         );
+
+        return CommonResponse.success("대화 이름이 수정되었습니다.", response);
     }
 
     @Operation(
@@ -137,7 +144,7 @@ public class ConversationController {
             @ApiResponse(responseCode = "404", description = "대화를 찾을 수 없음")
     })
     @DeleteMapping("/{conversationId}")
-    public void deleteConversation(
+    public CommonResponse<Void> deleteConversation(
             @Parameter(description = "대화 ID", example = "10")
             @PathVariable Long conversationId,
             @Parameter(hidden = true)
@@ -147,6 +154,8 @@ public class ConversationController {
 
         var command = new DeleteConversationCommand(conversationId, userId);
         conversationUseCase.deleteConversation(command);
+
+        return CommonResponse.<Void>success("대화가 삭제되었습니다.", null);
     }
 
     @Operation(

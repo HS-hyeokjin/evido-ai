@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Workspace } from "../../types/Workspace";
 import api from "../../api/client";
+import type { CommonResponse } from "../../types/ApiResponse.ts";
 
 export default function WorkspaceSelectPage() {
     const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
@@ -14,8 +15,8 @@ export default function WorkspaceSelectPage() {
 
     const fetchWorkspaces = async () => {
         try {
-            const res = await api.get("/api/conversations");
-            setWorkspaces(res.data);
+            const res = await api.get<CommonResponse<Workspace[]>>("/api/workspaces");
+            setWorkspaces(res.data.data);
         } catch (e) {
             console.error("workspace 조회 실패", e);
         } finally {
@@ -28,8 +29,12 @@ export default function WorkspaceSelectPage() {
         if (!name) return;
 
         try {
-            const res = await api.post("/api/conversations", { name });
-            navigate(`/workspace/${res.data.id}`);
+            const res = await api.post<CommonResponse<Workspace>>(
+                "/api/workspaces",
+                { name }
+            );
+
+            navigate(`/workspace/${res.data.data.id}`);
         } catch (e) {
             console.error("workspace 생성 실패", e);
         }

@@ -4,23 +4,13 @@ import { AnimatePresence, motion } from "framer-motion";
 import Logo from "../../assets/Logo1.png";
 import useAuth from "../../hooks/useAuth";
 import api from "../../api/client";
-import {
-    LayoutDashboard,
-    HelpCircle,
-    ChevronDown,
-    ChevronRight,
-    MoreHorizontal,
-    Trash2,
-    Pencil,
-    Plus,
-    MessageSquarePlus,
-    UserRound,
-    LogOut,
-} from "lucide-react";
+import { LayoutDashboard, HelpCircle, ChevronDown, ChevronRight, MoreHorizontal, Trash2, Pencil, Plus, MessageSquarePlus, UserRound, LogOut } from "lucide-react";
 import type { Workspace } from "../../types/Workspace";
 import type { Conversation } from "../../types/Conversation";
 import TextInputModal from "../common/TextInputModal";
 import ConfirmModal from "../common/ConfirmModal";
+import type {CommonResponse} from "../../types/ApiResponse.ts";
+import type {WorkspaceInit} from "../../types/WorkspaceInit.ts";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
@@ -75,15 +65,21 @@ export default function Sidebar() {
     };
 
     const fetchWorkspaces = async (): Promise<Workspace[]> => {
-        const res = await api.get("/api/workspaces");
-        setWorkspaces(res.data);
-        return res.data;
+        const res = await api.get<CommonResponse<Workspace[]>>("/api/workspaces");
+        const workspaces = res.data.data;
+        setWorkspaces(workspaces);
+        return workspaces;
     };
 
     const fetchConversations = async (wsId: string): Promise<Conversation[]> => {
-        const res = await api.get(`/api/conversations/${wsId}/conversations`);
-        setConversations(res.data);
-        return res.data;
+        const res = await api.get<CommonResponse<Conversation[]>>(
+            `/api/conversations/${wsId}/conversations`
+        );
+
+        const conversations = res.data.data;
+
+        setConversations(conversations);
+        return conversations;
     };
 
     const moveToWorkspace = (wsId: number | string) => {
@@ -183,8 +179,12 @@ export default function Sidebar() {
             setModalLoading(true);
 
             if (inputModal.mode === "createWorkspace") {
-                const res = await api.post("/api/workspaces", { name: value });
-                const createdWorkspaceId = res.data?.id;
+                const res = await api.post<CommonResponse<Workspace>>(
+                    "/api/workspaces",
+                    { name: value }
+                );
+
+                const createdWorkspaceId = res.data.data.id;
 
                 await fetchWorkspaces();
                 setInputModal({ open: false });
@@ -197,14 +197,17 @@ export default function Sidebar() {
             }
 
             if (inputModal.mode === "renameWorkspace" && inputModal.workspace) {
-                await api.patch(`/api/workspaces/${inputModal.workspace.id}`, {
-                    name: value,
-                });
+                const res = await api.patch<CommonResponse<Workspace>>(
+                    `/api/workspaces/${inputModal.workspace.id}`,
+                    { name: value }
+                );
+
+                const updatedWorkspace = res.data.data;
 
                 setWorkspaces((prev) =>
                     prev.map((item) =>
-                        item.id === inputModal.workspace!.id
-                            ? { ...item, name: value }
+                        item.id === updatedWorkspace.id
+                            ? updatedWorkspace
                             : item
                     )
                 );
@@ -214,14 +217,17 @@ export default function Sidebar() {
             }
 
             if (inputModal.mode === "renameConversation" && inputModal.conversation) {
-                await api.patch(`/api/conversations/${inputModal.conversation.id}`, {
-                    title: value,
-                });
+                const res = await api.patch<CommonResponse<Conversation>>(
+                    `/api/conversations/${inputModal.conversation.id}`,
+                    { title: value }
+                );
+
+                const updatedConversation = res.data.data;
 
                 setConversations((prev) =>
                     prev.map((item) =>
-                        item.id === inputModal.conversation!.id
-                            ? { ...item, title: value }
+                        item.id === updatedConversation.id
+                            ? updatedConversation
                             : item
                     )
                 );
@@ -245,8 +251,9 @@ export default function Sidebar() {
             if (confirmModal.mode === "deleteConversation" && confirmModal.conversation) {
                 const targetConversationId = confirmModal.conversation.id;
 
-                await api.delete(`/api/conversations/${targetConversationId}`);
-
+                await api.delete<CommonResponse<null>>(
+                    `/api/conversations/${targetConversationId}`
+                );
                 const nextConversations = conversations.filter(
                     (item) => item.id !== targetConversationId
                 );
@@ -272,7 +279,9 @@ export default function Sidebar() {
             if (confirmModal.mode === "deleteWorkspace" && confirmModal.workspace) {
                 const targetWorkspaceId = confirmModal.workspace.id;
 
-                await api.delete(`/api/workspaces/${targetWorkspaceId}`);
+                await api.delete<CommonResponse<null>>(
+                    `/api/workspaces/${targetWorkspaceId}`
+                );
 
                 const remaining = workspaces.filter((item) => item.id !== targetWorkspaceId);
 
@@ -290,16 +299,13 @@ export default function Sidebar() {
                     return;
                 }
 
-                const initRes = await api.get("/api/workspaces/init");
-                const initWorkspaceId = initRes.data?.workspaceId;
-                const initConversationId = initRes.data?.conversationId ?? initRes.data?.chatId;
+                const initRes = await api.get<CommonResponse<WorkspaceInit>>(
+                    "/api/workspaces/init"
+                );
+
+                const initWorkspaceId = initRes.data.data.workspaceId;
 
                 await fetchWorkspaces();
-
-                if (initWorkspaceId && initConversationId) {
-                    navigate(`/workspace/${initWorkspaceId}/conversation/${initConversationId}`);
-                    return;
-                }
 
                 if (initWorkspaceId) {
                     navigate(`/workspace/${initWorkspaceId}`);
@@ -320,8 +326,11 @@ export default function Sidebar() {
         if (!workspaceId) return;
 
         try {
-            const res = await api.post(`/api/conversations/${workspaceId}/conversations`);
-            const createdConversationId = res.data?.id;
+            const res = await api.post<CommonResponse<Conversation>>(
+                `/api/conversations/${workspaceId}/conversations`
+            );
+
+            const createdConversationId = res.data.data.id;
 
             const nextConversations = await fetchConversations(workspaceId);
 
