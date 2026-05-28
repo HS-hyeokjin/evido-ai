@@ -68,7 +68,10 @@ public class MessageController {
         return CommonResponse.success(response);
     }
 
-    @Operation(summary = "메시지 전송")
+    @Operation(
+            summary = "메시지 전송",
+            description = "기존 대화에 메시지를 전송하고 AI 응답을 받습니다."
+    )
     @ApiResponses({
             @ApiResponse(
                     responseCode = "200",

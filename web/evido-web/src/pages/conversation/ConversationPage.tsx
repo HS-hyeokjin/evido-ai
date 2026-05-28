@@ -5,6 +5,7 @@ import Button from "../../components/common/Button";
 import api from "../../api/client";
 import { Send, Sparkles } from "lucide-react";
 import FileViewerPanel from "./FileViewerPanel.tsx";
+import type { CommonResponse } from "../../types/ApiResponse";
 
 type MessageResponse = {
     id: number;
@@ -90,13 +91,20 @@ export default function ConversationPage() {
 
         const fetchMessages = async () => {
             try {
-                const res = await api.get(`/api/conversations/${conversationId}/messages`);
+                const res = await api.get<CommonResponse<MessageResponse[]>>(
+                    `/api/conversations/${conversationId}/messages`
+                );
 
-                const mapped = (res.data ?? []).map((m: any) => ({
-                    id: m?.id?.toString?.() ?? crypto.randomUUID(),
-                    role: m?.role?.toLowerCase() === "user" ? "user" : "assistant",
-                    text: m?.content ?? "",
-                    createdAt: m?.createdAt
+                const serverMessages = res.data.data ?? [];
+
+                const mapped: ConversationMessage[] = serverMessages.map((m) => ({
+                    id: m.id?.toString?.() ?? crypto.randomUUID(),
+                    role:
+                        m.role?.toLowerCase() === "user"
+                            ? ("user" as const)
+                            : ("assistant" as const),
+                    text: m.content ?? "",
+                    createdAt: m.createdAt
                         ? new Date(m.createdAt).getTime()
                         : Date.now(),
                 }));
@@ -143,11 +151,13 @@ export default function ConversationPage() {
                 ? `/api/conversations/workspaces/${workspaceId}/first-message`
                 : `/api/conversations/${conversationId}/messages`;
 
-            const res = await api.post<SendMessageResponse>(url, {
+            const res = await api.post<CommonResponse<SendMessageResponse>>(url, {
                 content: text,
             });
 
-            const serverMessages = res.data?.messages ?? [];
+            const result = res.data.data;
+
+            const serverMessages = result.messages ?? [];
             const userMsg = serverMessages[0];
             const assistantMsg = serverMessages[1];
 
@@ -191,9 +201,9 @@ export default function ConversationPage() {
                 })
             );
 
-            if (isNewConversation && res.data.conversationId) {
+            if (isNewConversation && result.conversationId) {
                 navigate(
-                    `/workspace/${workspaceId}/conversation/${res.data.conversationId}`,
+                    `/workspace/${workspaceId}/conversation/${result.conversationId}`,
                     { replace: true }
                 );
             }
@@ -289,7 +299,7 @@ export default function ConversationPage() {
                                                 transition={{ duration: 0.18 }}
                                                 className="flex justify-end"
                                             >
-                                                <div className="max-w-2xl rounded-[28px] bg-primary-400 px-5 py-4 text-[15px] leading-7 text-white shadow-[0_16px_40px_rgba(109,40,217,0.18)] whitespace-pre-wrap break-words">
+                                                <div className="max-w-2xl whitespace-pre-wrap break-words rounded-[28px] bg-primary-400 px-5 py-4 text-[15px] leading-7 text-white shadow-[0_16px_40px_rgba(109,40,217,0.18)]">
                                                     {m.text}
                                                 </div>
                                             </motion.div>
@@ -304,7 +314,7 @@ export default function ConversationPage() {
                                             transition={{ duration: 0.18 }}
                                             className="flex gap-4"
                                         >
-                                            <div className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white ring-1 ring-slate-200 shadow-sm">
+                                            <div className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
                                                 <Sparkles className="h-5 w-5 text-primary-600" />
                                             </div>
 
@@ -312,7 +322,7 @@ export default function ConversationPage() {
                                                 <div className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
                                                     Assistant
                                                 </div>
-                                                <div className="rounded-[30px] border border-slate-200 bg-white px-6 py-5 text-[15px] leading-7 text-slate-800 shadow-[0_12px_40px_rgba(15,23,42,0.05)] whitespace-pre-wrap break-words">
+                                                <div className="whitespace-pre-wrap break-words rounded-[30px] border border-slate-200 bg-white px-6 py-5 text-[15px] leading-7 text-slate-800 shadow-[0_12px_40px_rgba(15,23,42,0.05)]">
                                                     {m.text}
                                                 </div>
                                             </div>

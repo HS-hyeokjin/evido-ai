@@ -1,6 +1,7 @@
 package com.evido.api.document.api.controller;
 
 import com.evido.api.auth.infrastructure.security.CurrentUserProvider;
+import com.evido.api.common.response.CommonResponse;
 import com.evido.api.document.api.dto.request.*;
 import com.evido.api.document.api.dto.response.*;
 import com.evido.api.document.api.mapper.DocumentResponseMapper;
@@ -13,7 +14,6 @@ import com.evido.api.document.application.port.in.query.GetDocumentFileQuery;
 import com.evido.api.document.application.port.in.query.ListDocumentsQuery;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -144,16 +144,13 @@ public class DocumentController {
             @ApiResponse(
                     responseCode = "200",
                     description = "다운로드 URL 조회 성공",
-                    content = @Content(
-                            mediaType = "text/plain",
-                            schema = @Schema(type = "string", example = "https://example.com/presigned-url")
-                    )
+                    content = @Content(schema = @Schema(implementation = CommonResponse.class))
             ),
             @ApiResponse(responseCode = "403", description = "문서 접근 권한 없음"),
             @ApiResponse(responseCode = "404", description = "문서 또는 버전을 찾을 수 없음")
     })
     @GetMapping("/{documentId}/download")
-    public Mono<ResponseEntity<String>> getDownloadUrl(
+    public Mono<CommonResponse<String>> getDownloadUrl(
             @Parameter(description = "워크스페이스 ID", example = "1")
             @PathVariable Long workspaceId,
 
@@ -176,7 +173,7 @@ public class DocumentController {
         );
 
         return documentUseCase.getDocumentDownloadUrl(query)
-                .map(ResponseEntity::ok);
+                .map(url -> CommonResponse.success("문서 다운로드 URL 조회에 성공했습니다.", url));
     }
 
     @Operation(
@@ -187,13 +184,13 @@ public class DocumentController {
             @ApiResponse(
                     responseCode = "200",
                     description = "문서 업로드 성공",
-                    content = @Content(schema = @Schema(implementation = DocumentCreateResponse.class))
+                    content = @Content(schema = @Schema(implementation = CommonResponse.class))
             ),
             @ApiResponse(responseCode = "400", description = "잘못된 파일 또는 요청"),
             @ApiResponse(responseCode = "403", description = "워크스페이스 접근 권한 없음")
     })
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public Mono<DocumentCreateResponse> upload(
+    public Mono<CommonResponse<DocumentCreateResponse>> upload(
             @Parameter(description = "워크스페이스 ID", example = "1")
             @PathVariable Long workspaceId,
 
@@ -213,7 +210,11 @@ public class DocumentController {
         );
 
         return documentUseCase.uploadNewDocument(cmd)
-                .map(DocumentResponseMapper::from);
+                .map(DocumentResponseMapper::from)
+                .map(response -> CommonResponse.success(
+                        "문서 업로드가 완료되었습니다.",
+                        response
+                ));
     }
 
     @Operation(
@@ -224,14 +225,14 @@ public class DocumentController {
             @ApiResponse(
                     responseCode = "200",
                     description = "문서 버전 업로드 성공",
-                    content = @Content(schema = @Schema(implementation = DocumentCreateResponse.class))
+                    content = @Content(schema = @Schema(implementation = CommonResponse.class))
             ),
             @ApiResponse(responseCode = "400", description = "잘못된 파일 또는 요청"),
             @ApiResponse(responseCode = "403", description = "문서 접근 권한 없음"),
             @ApiResponse(responseCode = "404", description = "문서를 찾을 수 없음")
     })
     @PostMapping(value = "/{documentId}/versions", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public Mono<DocumentCreateResponse> uploadVersion(
+    public Mono<CommonResponse<DocumentCreateResponse>> uploadVersion(
             @Parameter(description = "워크스페이스 ID", example = "1")
             @PathVariable Long workspaceId,
 
@@ -254,7 +255,11 @@ public class DocumentController {
         );
 
         return documentUseCase.uploadNewVersion(cmd)
-                .map(DocumentResponseMapper::from);
+                .map(DocumentResponseMapper::from)
+                .map(response -> CommonResponse.success(
+                        "문서 새 버전 업로드가 완료되었습니다.",
+                        response
+                ));
     }
 
     @Operation(
@@ -265,13 +270,13 @@ public class DocumentController {
             @ApiResponse(
                     responseCode = "200",
                     description = "일괄 업로드 처리 완료",
-                    content = @Content(schema = @Schema(implementation = BulkUploadResponse.class))
+                    content = @Content(schema = @Schema(implementation = CommonResponse.class))
             ),
             @ApiResponse(responseCode = "400", description = "잘못된 파일 또는 요청"),
             @ApiResponse(responseCode = "403", description = "워크스페이스 접근 권한 없음")
     })
     @PostMapping(value = "/bulk", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public Mono<BulkUploadResponse> uploadBulk(
+    public Mono<CommonResponse<BulkUploadResponse>> uploadBulk(
             @Parameter(description = "워크스페이스 ID", example = "1")
             @PathVariable Long workspaceId,
 
@@ -291,7 +296,11 @@ public class DocumentController {
         );
 
         return documentUseCase.uploadBulk(cmd)
-                .map(DocumentResponseMapper::from);
+                .map(DocumentResponseMapper::from)
+                .map(response -> CommonResponse.success(
+                        "문서 일괄 업로드 처리가 완료되었습니다.",
+                        response
+                ));
     }
 
     @Operation(
@@ -302,12 +311,12 @@ public class DocumentController {
             @ApiResponse(
                     responseCode = "200",
                     description = "문서 목록 조회 성공",
-                    content = @Content(schema = @Schema(implementation = PageResponse.class))
+                    content = @Content(schema = @Schema(implementation = CommonResponse.class))
             ),
             @ApiResponse(responseCode = "403", description = "워크스페이스 접근 권한 없음")
     })
     @GetMapping
-    public Mono<PageResponse<DocumentListItemResponse>> list(
+    public Mono<CommonResponse<PageResponse<DocumentListItemResponse>>> list(
             @Parameter(description = "워크스페이스 ID", example = "1")
             @PathVariable Long workspaceId,
 
@@ -330,7 +339,8 @@ public class DocumentController {
         );
 
         return documentUseCase.listDocuments(query)
-                .map(DocumentResponseMapper::from);
+                .map(DocumentResponseMapper::from)
+                .map(response -> CommonResponse.success(response));
     }
 
     @Operation(
@@ -343,7 +353,7 @@ public class DocumentController {
             @ApiResponse(responseCode = "404", description = "문서를 찾을 수 없음")
     })
     @DeleteMapping("/{documentId}")
-    public Mono<Void> delete(
+    public Mono<CommonResponse<Void>> delete(
             @Parameter(description = "워크스페이스 ID", example = "1")
             @PathVariable Long workspaceId,
 
@@ -361,7 +371,11 @@ public class DocumentController {
                 documentId
         );
 
-        return documentUseCase.deleteDocument(cmd);
+        return documentUseCase.deleteDocument(cmd)
+                .thenReturn(CommonResponse.<Void>success(
+                        "문서가 삭제되었습니다.",
+                        null
+                ));
     }
 
     private ResponseEntity<String> textResponse(String body) {

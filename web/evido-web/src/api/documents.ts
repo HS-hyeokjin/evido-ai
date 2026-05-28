@@ -1,5 +1,6 @@
 import type { AxiosProgressEvent } from "axios";
 import api from "./client";
+import type { CommonResponse } from "../types/ApiResponse";
 
 export type PageResponse<T> = {
     content: T[];
@@ -57,7 +58,7 @@ export async function listDocuments(
     workspaceId: number,
     params: ListDocumentsParams = {}
 ): Promise<PageResponse<DocumentListItem>> {
-    const { data } = await api.get<PageResponse<DocumentListItem>>(
+    const { data } = await api.get<CommonResponse<PageResponse<DocumentListItem>>>(
         documentBasePath(workspaceId),
         {
             params: {
@@ -69,14 +70,16 @@ export async function listDocuments(
         }
     );
 
-    return data;
+    return data.data;
 }
 
 export async function deleteDocument(
     workspaceId: number,
     documentId: number
 ): Promise<void> {
-    await api.delete(`${documentBasePath(workspaceId)}/${documentId}`);
+    await api.delete<CommonResponse<null>>(
+        `${documentBasePath(workspaceId)}/${documentId}`
+    );
 }
 
 export async function uploadDocumentsBulk(
@@ -93,7 +96,7 @@ export async function uploadDocumentsBulk(
         formData.append("files", file);
     }
 
-    const { data } = await api.post<BulkUploadResponse>(
+    const { data } = await api.post<CommonResponse<BulkUploadResponse>>(
         `${documentBasePath(workspaceId)}/bulk`,
         formData,
         {
@@ -102,13 +105,14 @@ export async function uploadDocumentsBulk(
             },
             onUploadProgress: (event: AxiosProgressEvent) => {
                 if (!params.onProgress || !event.total) return;
+
                 const percent = Math.round((event.loaded * 100) / event.total);
                 params.onProgress(percent);
             },
         }
     );
 
-    return data;
+    return data.data;
 }
 
 export async function getDocumentTextContent(
@@ -151,7 +155,7 @@ export async function getDocumentDownloadUrl(
     documentId: number,
     versionId?: number
 ): Promise<string> {
-    const { data } = await api.get<string>(
+    const { data } = await api.get<CommonResponse<string>>(
         `${documentBasePath(workspaceId)}/${documentId}/download`,
         {
             params: {
@@ -160,5 +164,5 @@ export async function getDocumentDownloadUrl(
         }
     );
 
-    return data;
+    return data.data;
 }

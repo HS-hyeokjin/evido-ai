@@ -1,5 +1,6 @@
 package com.evido.api.qa.api.controller;
 
+import com.evido.api.common.response.CommonResponse;
 import com.evido.api.qa.api.dto.request.AskRequest;
 import com.evido.api.qa.api.dto.response.AskResponse;
 import com.evido.api.qa.api.mapper.AskResponseMapper;
@@ -32,13 +33,13 @@ public class QaController {
             @ApiResponse(
                     responseCode = "200",
                     description = "질문 처리 성공",
-                    content = @Content(schema = @Schema(implementation = AskResponse.class))
+                    content = @Content(schema = @Schema(implementation = CommonResponse.class))
             ),
             @ApiResponse(responseCode = "400", description = "잘못된 요청"),
             @ApiResponse(responseCode = "404", description = "워크스페이스 또는 문서를 찾을 수 없음")
     })
     @PostMapping("/answer")
-    public Mono<AskResponse> answer(
+    public Mono<CommonResponse<AskResponse>> answer(
             @io.swagger.v3.oas.annotations.parameters.RequestBody(
                     description = "질문 요청 정보",
                     required = true
@@ -46,7 +47,12 @@ public class QaController {
             @Valid @RequestBody AskRequest request
     ) {
         AskCommand command = AskCommand.from(request);
+
         return qaUseCase.answer(command)
-                .map(AskResponseMapper::from);
+                .map(AskResponseMapper::from)
+                .map(response -> CommonResponse.success(
+                        "질문 처리가 완료되었습니다.",
+                        response
+                ));
     }
 }
