@@ -8,10 +8,6 @@ import com.evido.api.workspace.application.dto.WorkspaceInitResult;
 import com.evido.api.workspace.application.port.in.WorkspaceInitUseCase;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
@@ -26,18 +22,7 @@ public class WorkspaceInitController {
     private final WorkspaceInitUseCase workspaceInitUseCase;
     private final CurrentUserProvider currentUserProvider;
 
-    @Operation(
-            summary = "워크스페이스 초기화",
-            description = "사용자의 첫 진입 시 기본 워크스페이스를 조회하고, 없으면 생성합니다."
-    )
-    @ApiResponses({
-            @ApiResponse(
-                    responseCode = "200",
-                    description = "워크스페이스 초기화 성공",
-                    content = @Content(schema = @Schema(implementation = WorkspaceInitResponse.class))
-            ),
-            @ApiResponse(responseCode = "401", description = "인증 필요")
-    })
+    @Operation(summary = "워크스페이스 초기화")
     @GetMapping("/init")
     public CommonResponse<WorkspaceInitResponse> init(
             @Parameter(hidden = true)
