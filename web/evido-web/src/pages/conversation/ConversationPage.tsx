@@ -35,9 +35,11 @@ type ConversationMessage =
 };
 
 const STARTER_PROMPTS = [
-    "이 문서의 핵심 내용을 요약해줘",
+    "문서의 내용을 요약해줘",
     "중요한 개념만 쉽게 설명해줘",
-    "실무에 적용할 포인트를 알려줘",
+    "이 문서의 결론과 핵심 근거를 알려줘",
+    "시험에 나올 만한 내용을 정리해줘",
+    "회의에서 공유할 수 있게 요약해줘",
 ];
 
 export default function ConversationPage() {
@@ -270,12 +272,13 @@ export default function ConversationPage() {
                                     </div>
 
                                     <div className="mt-8 flex flex-wrap justify-center gap-3">
-                                        {STARTER_PROMPTS.map((prompt) => (
+                                        {STARTER_PROMPTS.filter(Boolean).map((prompt) => (
                                             <button
                                                 key={prompt}
                                                 type="button"
-                                                onClick={() => setQ(prompt)}
-                                                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-primary-200 hover:text-primary-700"
+                                                disabled={loading}
+                                                onClick={() => void ask(prompt)}
+                                                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-primary-200 hover:text-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
                                             >
                                                 {prompt}
                                             </button>
