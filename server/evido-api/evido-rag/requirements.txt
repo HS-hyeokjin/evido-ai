@@ -8,3 +8,4 @@ pymysql
 google-genai
 boto3
 groq
+pydantic
