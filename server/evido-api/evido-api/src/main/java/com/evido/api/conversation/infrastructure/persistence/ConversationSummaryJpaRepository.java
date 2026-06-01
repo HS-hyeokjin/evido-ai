@@ -1,4 +1,4 @@
-package com.evido.api.conversation.infrastructure.persistence.repository;
+package com.evido.api.conversation.infrastructure.persistence;
 
 import com.evido.api.conversation.infrastructure.persistence.entity.ConversationSummaryJpaEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
