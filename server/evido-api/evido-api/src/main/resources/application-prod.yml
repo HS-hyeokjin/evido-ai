@@ -48,6 +48,7 @@ logging:
 rag:
   base-url: ${RAG_BASE_URL}
   timeout-seconds: 20
+  summary-timeout-seconds: 60
 
 jwt:
   secret: ${JWT_SECRET}

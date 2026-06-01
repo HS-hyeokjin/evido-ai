@@ -1,3 +1,4 @@
+from app.api import conversation_summary
 from app.api.ingest import router as ingest_router
 from app.api.chunks import router as chunks_router
 from app.api.embed import router as embed_router
@@ -34,6 +35,7 @@ app.include_router(ingest_router, prefix="/ingest", tags=["ingest"])   #문서 �
 app.include_router(chunks_router, prefix="/chunks", tags=["chunks"])   # 디버깅용
 app.include_router(embed_router, prefix="/embed", tags=["embed"])      # 임베딩용
 app.include_router(query_router, prefix="/query", tags=["query"])      # LLM없이 벡터 검색용
+app.include_router(conversation_summary.router)
 
 app.include_router(vectors_router, prefix="/vectors", tags=["vectors"])
 

@@ -1,12 +1,11 @@
-from pydantic import BaseModel, Field
 from typing import List, Optional
+from pydantic import BaseModel, Field
 
-class AnswerRequest(BaseModel):
-    workspaceId: int
-    queryText: str
-    documentId: Optional[int] = None
-    versionId: Optional[int] = None
-    topK: int = Field(default=5, ge=1, le=20)
+
+class RecentMessage(BaseModel):
+    role: str
+    content: str
+
 
 class Evidence(BaseModel):
     chunkId: int
@@ -14,7 +13,19 @@ class Evidence(BaseModel):
     chunkIndex: int
     contentHead: str
 
+
+class AnswerRequest(BaseModel):
+    workspaceId: int
+    conversationId: Optional[int] = None
+    queryText: str
+    topK: Optional[int] = None
+    conversationSummary: Optional[str] = None
+    recentMessages: List[RecentMessage] = Field(default_factory=list)
+
+
 class AnswerResponse(BaseModel):
     queryText: str
     answer: str
     evidences: List[Evidence]
+    questionType: Optional[str] = None
+    fromCache: bool = False

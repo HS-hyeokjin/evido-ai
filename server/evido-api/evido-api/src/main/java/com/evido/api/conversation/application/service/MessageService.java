@@ -11,22 +11,28 @@ import com.evido.api.conversation.application.port.out.MessageRepositoryPort;
 import com.evido.api.conversation.application.port.out.WorkspaceAccessPort;
 import com.evido.api.conversation.domain.Conversation;
 import com.evido.api.conversation.domain.Message;
+import com.evido.api.qa.application.dto.ConversationContext;
 import com.evido.api.qa.application.port.in.QaUseCase;
 import com.evido.api.qa.application.port.in.command.AskCommand;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
+import java.util.Comparator;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class MessageService implements MessageUseCase {
 
+    private static final int RECENT_MESSAGE_LIMIT = 6;
+    private static final int DEFAULT_TOP_K = 5;
+
     private final MessageRepositoryPort messageRepositoryPort;
     private final ConversationRepositoryPort conversationRepositoryPort;
     private final WorkspaceAccessPort workspaceAccessPort;
     private final QaUseCase qaUseCase;
+    private final ConversationSummaryService conversationSummaryService;
 
     @Override
     public Mono<SendMessageResult> sendMessage(SendMessageCommand command) {
@@ -39,23 +45,41 @@ public class MessageService implements MessageUseCase {
                 command.content()
         );
 
-        return qaUseCase.answer(
-                new AskCommand(conversation.getWorkspaceId(), command.content(), 5)
-        ).map(result -> {
+        ConversationContext context = buildConversationContext(
+                conversation.getId(),
+                userMessage.getId()
+        );
 
-            Message assistantMessage = saveAssistantMessage(
-                    conversation.getId(),
-                    result.answer()
-            );
+        AskCommand askCommand = new AskCommand(
+                conversation.getWorkspaceId(),
+                conversation.getId(),
+                command.content(),
+                DEFAULT_TOP_K
+        );
 
-            return new SendMessageResult(
-                    conversation.getId(),
-                    List.of(
-                            toResult(userMessage),
-                            toResult(assistantMessage)
-                    )
-            );
-        });
+        return qaUseCase.answer(askCommand, context)
+                .flatMap(result -> {
+
+                    Message assistantMessage = saveAssistantMessage(
+                            conversation.getId(),
+                            result.answer()
+                    );
+
+                    SendMessageResult sendMessageResult = new SendMessageResult(
+                            conversation.getId(),
+                            List.of(
+                                    toResult(userMessage),
+                                    toResult(assistantMessage)
+                            )
+                    );
+
+                    return conversationSummaryService.updateIfNeeded(conversation.getId())
+                            .onErrorResume(e -> {
+                                System.out.println("[SUMMARY UPDATE ERROR] " + e.getMessage());
+                                return Mono.empty();
+                            })
+                            .thenReturn(sendMessageResult);
+                });
     }
 
     @Override
@@ -86,23 +110,58 @@ public class MessageService implements MessageUseCase {
                 command.content()
         );
 
-        return qaUseCase.answer(
-                new AskCommand(command.workspaceId(), command.content(), 5)
-        ).map(result -> {
+        AskCommand askCommand = new AskCommand(
+                command.workspaceId(),
+                conversation.getId(),
+                command.content(),
+                DEFAULT_TOP_K
+        );
 
-            Message assistantMessage = saveAssistantMessage(
-                    conversation.getId(),
-                    result.answer()
-            );
+        return qaUseCase.answer(askCommand, ConversationContext.empty())
+                .flatMap(result -> {
 
-            return new SendMessageResult(
-                    conversation.getId(),
-                    List.of(
-                            toResult(userMessage),
-                            toResult(assistantMessage)
-                    )
-            );
-        });
+                    Message assistantMessage = saveAssistantMessage(
+                            conversation.getId(),
+                            result.answer()
+                    );
+
+                    SendMessageResult sendMessageResult = new SendMessageResult(
+                            conversation.getId(),
+                            List.of(
+                                    toResult(userMessage),
+                                    toResult(assistantMessage)
+                            )
+                    );
+
+                    return conversationSummaryService.updateIfNeeded(conversation.getId())
+                            .onErrorResume(e -> {
+                                System.out.println("[SUMMARY UPDATE ERROR] " + e.getMessage());
+                                return Mono.empty();
+                            })
+                            .thenReturn(sendMessageResult);
+                });
+    }
+
+    private ConversationContext buildConversationContext(Long conversationId, Long currentMessageId) {
+        String summary = conversationSummaryService.getSummary(conversationId);
+
+        List<ConversationContext.RecentMessage> recentMessages =
+                messageRepositoryPort.findByConversationId(conversationId)
+                        .stream()
+                        // 현재 질문은 queryText로 따로 전달하므로 recentMessages에서는 제외
+                        .filter(message -> !message.getId().equals(currentMessageId))
+                        // 최신순으로 6개만 가져온 뒤
+                        .sorted(Comparator.comparing(Message::getCreatedAt).reversed())
+                        .limit(RECENT_MESSAGE_LIMIT)
+                        // 다시 오래된 순으로 정렬해서 대화 흐름 유지
+                        .sorted(Comparator.comparing(Message::getCreatedAt))
+                        .map(message -> new ConversationContext.RecentMessage(
+                                message.getRole().name().toLowerCase(),
+                                message.getContent()
+                        ))
+                        .toList();
+
+        return new ConversationContext(summary, recentMessages);
     }
 
     private Conversation getConversation(Long conversationId) {

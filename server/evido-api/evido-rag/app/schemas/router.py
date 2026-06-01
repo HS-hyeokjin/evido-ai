@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 
 class RouteAction(str, Enum):
     BASIC_RESPONSE = "BASIC_RESPONSE"
+    CONTEXT_RESPONSE = "CONTEXT_RESPONSE"
     RAG_REQUIRED = "RAG_REQUIRED"
     CLARIFY = "CLARIFY"
     OUT_OF_SCOPE = "OUT_OF_SCOPE"

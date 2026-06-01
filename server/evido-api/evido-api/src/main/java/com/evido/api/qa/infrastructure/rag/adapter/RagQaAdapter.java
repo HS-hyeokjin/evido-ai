@@ -1,5 +1,6 @@
 package com.evido.api.qa.infrastructure.rag.adapter;
 
+import com.evido.api.qa.application.dto.ConversationContext;
 import com.evido.api.qa.application.port.in.command.AskCommand;
 import com.evido.api.qa.infrastructure.rag.dto.RagAnswerRequest;
 import com.evido.api.qa.infrastructure.rag.dto.RagAnswerResponse;
@@ -23,8 +24,8 @@ public class RagQaAdapter implements RagPort {
     private long timeoutSeconds;
 
     @Override
-    public Mono<RagAnswerResponse> answer(AskCommand command) {
-        RagAnswerRequest request = RagAnswerRequest.from(command);
+    public Mono<RagAnswerResponse> answer(AskCommand command, ConversationContext context) {
+        RagAnswerRequest request = RagAnswerRequest.from(command, context);
 
         return ragApiWebClient.post()
                 .uri("/answer")

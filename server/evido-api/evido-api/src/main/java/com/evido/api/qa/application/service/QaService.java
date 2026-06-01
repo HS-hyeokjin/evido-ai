@@ -1,8 +1,9 @@
 package com.evido.api.qa.application.service;
 
-import com.evido.api.qa.application.port.in.command.AskCommand;
 import com.evido.api.qa.application.dto.AskResult;
+import com.evido.api.qa.application.dto.ConversationContext;
 import com.evido.api.qa.application.port.in.QaUseCase;
+import com.evido.api.qa.application.port.in.command.AskCommand;
 import com.evido.api.qa.application.port.out.RagPort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -15,8 +16,8 @@ public class QaService implements QaUseCase {
     private final RagPort ragPort;
 
     @Override
-    public Mono<AskResult> answer(AskCommand command) {
-        return ragPort.answer(command)
+    public Mono<AskResult> answer(AskCommand command, ConversationContext context) {
+        return ragPort.answer(command, context)
                 .map(AskResult::from);
     }
 }
