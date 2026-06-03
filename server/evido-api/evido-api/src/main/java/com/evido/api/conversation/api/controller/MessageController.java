@@ -34,7 +34,6 @@ public class MessageController {
     @GetMapping("/{conversationId}/messages")
     public CommonResponse<List<MessageResponse>> getMessages(
             @PathVariable Long conversationId,
-
             @Parameter(hidden = true)
             Authentication authentication
     ) {
@@ -55,7 +54,6 @@ public class MessageController {
     public Mono<CommonResponse<SendMessageResponse>> sendMessage(
             @PathVariable Long conversationId,
             @RequestBody MessageRequest request,
-
             @Parameter(hidden = true)
             Authentication authentication
     ) {
@@ -80,7 +78,6 @@ public class MessageController {
     public Mono<CommonResponse<SendMessageResponse>> sendFirstMessage(
             @PathVariable Long workspaceId,
             @RequestBody MessageRequest request,
-
             @Parameter(hidden = true)
             Authentication authentication
     ) {

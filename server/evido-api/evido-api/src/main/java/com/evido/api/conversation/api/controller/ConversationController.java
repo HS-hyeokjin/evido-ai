@@ -32,7 +32,6 @@ public class ConversationController {
     @GetMapping("/{workspaceId}/conversations")
     public CommonResponse<List<ConversationResponse>> getConversation(
             @PathVariable Long workspaceId,
-
             @Parameter(hidden = true)
             Authentication authentication
     ) {
@@ -52,7 +51,6 @@ public class ConversationController {
     @PostMapping("/{workspaceId}/conversations")
     public CommonResponse<ConversationResponse> createConversation(
             @PathVariable Long workspaceId,
-
             @Parameter(hidden = true)
             Authentication authentication
     ) {
@@ -72,7 +70,6 @@ public class ConversationController {
     public CommonResponse<ConversationResponse> updateConversation(
             @PathVariable Long conversationId,
             @RequestBody ConversationUpdateRequest request,
-
             @Parameter(hidden = true)
             Authentication authentication
     ) {
@@ -95,7 +92,6 @@ public class ConversationController {
     @DeleteMapping("/{conversationId}")
     public CommonResponse<Void> deleteConversation(
             @PathVariable Long conversationId,
-
             @Parameter(hidden = true)
             Authentication authentication
     ) {
