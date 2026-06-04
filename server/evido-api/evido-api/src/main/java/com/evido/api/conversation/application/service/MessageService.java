@@ -148,12 +148,9 @@ public class MessageService implements MessageUseCase {
         List<ConversationContext.RecentMessage> recentMessages =
                 messageRepositoryPort.findByConversationId(conversationId)
                         .stream()
-                        // 현재 질문은 queryText로 따로 전달하므로 recentMessages에서는 제외
                         .filter(message -> !message.getId().equals(currentMessageId))
-                        // 최신순으로 6개만 가져온 뒤
                         .sorted(Comparator.comparing(Message::getCreatedAt).reversed())
                         .limit(RECENT_MESSAGE_LIMIT)
-                        // 다시 오래된 순으로 정렬해서 대화 흐름 유지
                         .sorted(Comparator.comparing(Message::getCreatedAt))
                         .map(message -> new ConversationContext.RecentMessage(
                                 message.getRole().name().toLowerCase(),

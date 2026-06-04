@@ -1,5 +1,6 @@
 package com.evido.api.workspace.application.service;
 
+import com.evido.api.common.logging.UseCaseLog;
 import com.evido.api.document.application.port.in.DefaultDocumentProvisionUseCase;
 import com.evido.api.workspace.application.dto.WorkspaceInitResult;
 import com.evido.api.workspace.application.port.in.WorkspaceInitUseCase;
@@ -20,6 +21,7 @@ public class WorkspaceInitService implements WorkspaceInitUseCase {
 
     @Override
     @Transactional
+    @UseCaseLog("workspace.init")
     public WorkspaceInitResult init(String userId) {
 
         List<Workspace> workspaces = workspaceRepository.findAllByUserId(userId);
