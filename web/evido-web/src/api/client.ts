@@ -10,34 +10,12 @@ const api = axios.create({
 
 let isRefreshing = false;
 
-const isAuthEndpoint = (url?: string) => {
-    if (!url) return false;
-
-    return (
-        url.includes("/api/auth/session") ||
-        url.includes("/api/auth/guest/token") ||
-        url.includes("/api/auth/refresh") ||
-        url.includes("/api/auth/logout")
-    );
-};
-
 api.interceptors.response.use(
     (res) => res,
     async (err) => {
         const originalRequest = err.config;
-
-        if (!originalRequest) {
-            return Promise.reject(err);
-        }
-
-        const status = err.response?.status;
-        const requestUrl = originalRequest.url;
-
-        if (
-            status === 401 &&
-            !originalRequest._retry &&
-            !isAuthEndpoint(requestUrl)
-        ) {
+        console.log(API_BASE);
+        if (err.response?.status === 401 && !originalRequest._retry) {
             originalRequest._retry = true;
 
             try {
@@ -49,13 +27,13 @@ api.interceptors.response.use(
                         {},
                         { withCredentials: true }
                     );
+
+                    isRefreshing = false;
                 }
 
                 return api(originalRequest);
             } catch (refreshError) {
-                return Promise.reject(refreshError);
-            } finally {
-                isRefreshing = false;
+                window.location.href = "/login";
             }
         }
 

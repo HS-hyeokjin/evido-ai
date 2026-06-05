@@ -7,10 +7,8 @@ import AppLoadingScreen from "./AppLoadingScreen";
 export default function AppLayout() {
     const { user, loading: authLoading } = useAuth();
 
-    const workspaceEnabled = !authLoading && user?.authenticated === true;
-
     const { loading: workspaceLoading } = useWorkspaceInit({
-        enabled: workspaceEnabled,
+        enabled: !authLoading,
         user,
     });
 
