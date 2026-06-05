@@ -13,16 +13,15 @@ export default function useWorkspaceInit({ enabled, user }: UseWorkspaceInitOpti
     const navigate = useNavigate();
     const { workspaceId } = useParams();
 
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const requestedRef = useRef(false);
 
     useEffect(() => {
         if (!enabled) {
-            setLoading(false);
             return;
         }
 
-        if (!user?.authenticated) {
+        if (!user) {
             setLoading(false);
             return;
         }
