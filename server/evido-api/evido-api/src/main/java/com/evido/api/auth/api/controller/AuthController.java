@@ -36,7 +36,7 @@ public class AuthController {
             @Parameter(hidden = true)
             Authentication authentication
     ) {
-        String userId = currentUserProvider.getUserId(authentication);
+        String userId = currentUserProvider.getNullableUserId(authentication);
 
         if (userId == null) {
             return new SessionResponse(false, null, null);
@@ -84,8 +84,9 @@ public class AuthController {
             @Parameter(hidden = true)
             Authentication authentication
     ) {
-        if (authentication != null) {
-            String userId = (String) authentication.getPrincipal();
+        String userId = currentUserProvider.getNullableUserId(authentication);
+
+        if (userId != null) {
             logoutUseCase.logout(userId);
         }
 
