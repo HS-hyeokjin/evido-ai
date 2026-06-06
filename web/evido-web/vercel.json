@@ -1,8 +1,16 @@
 {
   "rewrites": [
     {
-      "source": "/(.*)",
-      "destination": "/index.html"
+      "source": "/api/:path*",
+      "destination": "https://evido.cloud/api/:path*"
+    },
+    {
+      "source": "/oauth2/:path*",
+      "destination": "https://evido.cloud/oauth2/:path*"
+    },
+    {
+      "source": "/login/oauth2/:path*",
+      "destination": "https://evido.cloud/login/oauth2/:path*"
     }
   ]
 }
