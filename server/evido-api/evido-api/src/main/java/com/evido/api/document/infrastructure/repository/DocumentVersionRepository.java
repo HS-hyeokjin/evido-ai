@@ -1,6 +1,6 @@
 package com.evido.api.document.infrastructure.repository;
 
-import com.evido.api.document.entity.DocumentVersion;
+import com.evido.api.document.domain.DocumentVersion;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 

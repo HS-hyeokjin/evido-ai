@@ -11,7 +11,7 @@ import com.evido.api.document.application.port.in.query.ListDocumentsQuery;
 import com.evido.api.document.application.port.out.DocumentProcessPort;
 import com.evido.api.document.application.port.out.FileStoragePort;
 import com.evido.api.document.application.port.out.VectorIndexPort;
-import com.evido.api.document.entity.*;
+import com.evido.api.document.domain.*;
 import com.evido.api.document.infrastructure.repository.DocumentChunkRepository;
 import com.evido.api.document.infrastructure.repository.DocumentRepository;
 import com.evido.api.document.infrastructure.repository.DocumentVersionRepository;

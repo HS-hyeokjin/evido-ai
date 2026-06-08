@@ -1,4 +1,4 @@
-package com.evido.api.document.entity;
+package com.evido.api.document.domain;
 
 import jakarta.persistence.*;
 import lombok.*;

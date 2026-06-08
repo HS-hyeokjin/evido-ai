@@ -1,6 +1,6 @@
 package com.evido.api.document.infrastructure.repository;
 
-import com.evido.api.document.entity.Document;
+import com.evido.api.document.domain.Document;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;

@@ -1,6 +1,6 @@
 package com.evido.api.document.infrastructure.repository;
 
-import com.evido.api.document.entity.DocumentChunk;
+import com.evido.api.document.domain.DocumentChunk;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface DocumentChunkRepository extends JpaRepository<DocumentChunk, Long> {
