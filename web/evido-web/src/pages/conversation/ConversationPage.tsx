@@ -6,33 +6,11 @@ import api from "../../api/client";
 import { Send, Sparkles } from "lucide-react";
 import FileViewerPanel from "./FileViewerPanel.tsx";
 import type { CommonResponse } from "../../types/ApiResponse";
-
-type MessageResponse = {
-    id: number;
-    role: string;
-    content: string;
-    createdAt: string;
-};
-
-type SendMessageResponse = {
-    conversationId: number;
-    messages?: MessageResponse[];
-};
-
-type ConversationMessage =
-    | {
-    id: string;
-    role: "user";
-    text: string;
-    createdAt: number;
-}
-    | {
-    id: string;
-    role: "assistant";
-    text: string;
-    createdAt: number;
-    loading?: boolean;
-};
+import type {
+    MessageResponse,
+    SendMessageResponse,
+    ConversationMessage,
+} from "../../types/Conversation";
 
 const STARTER_PROMPTS = [
     "문서의 내용을 요약해줘",
