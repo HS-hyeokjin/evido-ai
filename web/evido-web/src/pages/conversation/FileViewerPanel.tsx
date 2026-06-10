@@ -4,7 +4,6 @@ import {
     listDocuments,
     deleteDocument,
     getDocumentFileUrl,
-    getDocumentTextContent,
     type DocumentListItem,
     type PageResponse,
 } from "../../api/documents";
@@ -19,6 +18,8 @@ import {
     ChevronDown,
     ChevronRight,
 } from "lucide-react";
+import PdfViewer from "../../components/viewers/PdfViewer";
+import TextViewer from "../../components/viewers/TextViewer";
 
 type Props = {
     workspaceId: number;
@@ -26,23 +27,30 @@ type Props = {
 
 type ViewerMode = "pdf" | "text" | "unknown";
 
+const PAGE_SIZE = 10;
+
 function getExt(name?: string | null) {
     if (!name) return "";
+
     const lower = name.toLowerCase();
     const dot = lower.lastIndexOf(".");
+
     return dot >= 0 ? lower.slice(dot) : "";
 }
 
 function guessModeByExt(ext: string): ViewerMode {
     if (ext === ".pdf") return "pdf";
     if (ext === ".txt" || ext === ".md") return "text";
+
     return "unknown";
 }
 
 function formatDate(iso?: string | null) {
     if (!iso) return "-";
+
     try {
         const d = new Date(iso);
+
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
             d.getDate()
         ).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(
@@ -55,8 +63,8 @@ function formatDate(iso?: string | null) {
 
 export default function FileViewerPanel({ workspaceId }: Props) {
     const [query, setQuery] = useState("");
+    const [debouncedQuery, setDebouncedQuery] = useState("");
     const [page, setPage] = useState(0);
-    const size = 10;
 
     const [docLoading, setDocLoading] = useState(false);
     const [docError, setDocError] = useState<string | null>(null);
@@ -66,34 +74,37 @@ export default function FileViewerPanel({ workspaceId }: Props) {
     const [viewerMode, setViewerMode] = useState<ViewerMode>("unknown");
     const [viewerUrl, setViewerUrl] = useState<string | null>(null);
 
-    const [textLoading, setTextLoading] = useState(false);
-    const [textError, setTextError] = useState<string | null>(null);
-    const [textContent, setTextContent] = useState("");
-
     const [fileSectionOpen, setFileSectionOpen] = useState(true);
     const [viewerSectionOpen, setViewerSectionOpen] = useState(true);
 
     const fileInputRef = useRef<HTMLInputElement | null>(null);
+    const selectedRef = useRef<DocumentListItem | null>(null);
+    const requestSeqRef = useRef(0);
+
     const [uploadLoading, setUploadLoading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
 
     const totalPages = docPage?.totalPages ?? 0;
     const list = docPage?.content ?? [];
 
-    const hasValidWorkspace =
-        Number.isFinite(workspaceId) && workspaceId > 0;
+    const hasValidWorkspace = Number.isFinite(workspaceId) && workspaceId > 0;
 
-    const resetViewer = () => {
+    useEffect(() => {
+        selectedRef.current = selected;
+    }, [selected]);
+
+    const resetViewer = useCallback(() => {
+        selectedRef.current = null;
+
         setSelected(null);
         setViewerUrl(null);
         setViewerMode("unknown");
-        setTextContent("");
-        setTextError(null);
-        setTextLoading(false);
-    };
+    }, []);
 
     const fetchDocs = useCallback(
-        async (currentQuery = query, currentPage = page) => {
+        async (currentQuery: string, currentPage: number) => {
+            const requestSeq = ++requestSeqRef.current;
+
             if (!hasValidWorkspace) {
                 setDocPage(null);
                 setDocError("워크스페이스 정보가 없습니다.");
@@ -108,87 +119,89 @@ export default function FileViewerPanel({ workspaceId }: Props) {
                 const data = await listDocuments(workspaceId, {
                     query: currentQuery || undefined,
                     page: currentPage,
-                    size,
+                    size: PAGE_SIZE,
                     sort: "createdAt,desc",
                 });
 
+                if (requestSeq !== requestSeqRef.current) {
+                    return;
+                }
+
                 setDocPage(data);
 
-                const stillExists =
-                    selected &&
-                    data.content.some((x) => x.documentId === selected.documentId);
+                const currentSelected = selectedRef.current;
 
-                if (selected && !stillExists) {
+                const stillExists =
+                    currentSelected &&
+                    data.content.some(
+                        (x) => x.documentId === currentSelected.documentId
+                    );
+
+                if (currentSelected && !stillExists) {
                     resetViewer();
                 }
             } catch (e: any) {
+                if (requestSeq !== requestSeqRef.current) {
+                    return;
+                }
+
                 console.error(e);
                 setDocError(e?.response?.data?.message ?? "문서 목록 조회 실패");
             } finally {
-                setDocLoading(false);
+                if (requestSeq === requestSeqRef.current) {
+                    setDocLoading(false);
+                }
             }
         },
-        [hasValidWorkspace, workspaceId, query, page, size, selected]
+        [hasValidWorkspace, workspaceId, resetViewer]
     );
 
     useEffect(() => {
+        setQuery("");
+        setDebouncedQuery("");
         setPage(0);
         resetViewer();
-    }, [workspaceId]);
+    }, [workspaceId, resetViewer]);
 
     useEffect(() => {
-        fetchDocs(query, page);
-    }, [fetchDocs, query, page]);
-
-    useEffect(() => {
-        const timer = setTimeout(() => {
+        const timer = window.setTimeout(() => {
+            setDebouncedQuery(query);
             setPage(0);
-            fetchDocs(query, 0);
         }, 250);
 
-        return () => clearTimeout(timer);
-    }, [query, fetchDocs]);
+        return () => window.clearTimeout(timer);
+    }, [query]);
 
-    const onPick = async (d: DocumentListItem) => {
+    useEffect(() => {
+        fetchDocs(debouncedQuery, page);
+    }, [fetchDocs, debouncedQuery, page]);
+
+    const onPick = (d: DocumentListItem) => {
         if (!hasValidWorkspace) {
             alert("워크스페이스 정보가 없습니다.");
             return;
         }
 
-        setSelected(d);
-        setTextError(null);
-        setTextContent("");
-        setTextLoading(false);
+        const sameDocument =
+            selectedRef.current?.documentId === d.documentId &&
+            selectedRef.current?.latestVersionId === d.latestVersionId;
+
+        if (sameDocument && viewerUrl) {
+            return;
+        }
+
+        selectedRef.current = d;
 
         const ext = getExt(d.filename);
         const mode = guessModeByExt(ext);
+        const versionId =
+            typeof d.latestVersionId === "number" ? d.latestVersionId : undefined;
+
+        const url = getDocumentFileUrl(workspaceId, d.documentId, versionId);
+
+        setSelected(d);
         setViewerMode(mode);
-
-        const url = getDocumentFileUrl(
-            workspaceId,
-            d.documentId,
-            typeof d.latestVersionId === "number" ? d.latestVersionId : undefined
-        );
         setViewerUrl(url);
-
-        if (mode === "text") {
-            try {
-                setTextLoading(true);
-
-                const content = await getDocumentTextContent(
-                    workspaceId,
-                    d.documentId,
-                    typeof d.latestVersionId === "number" ? d.latestVersionId : undefined
-                );
-
-                setTextContent(content);
-            } catch (e: any) {
-                console.error(e);
-                setTextError(e?.response?.data?.message ?? "텍스트 미리보기 실패");
-            } finally {
-                setTextLoading(false);
-            }
-        }
     };
 
     const onDelete = async (d: DocumentListItem) => {
@@ -204,7 +217,7 @@ export default function FileViewerPanel({ workspaceId }: Props) {
         try {
             setDocLoading(true);
             await deleteDocument(workspaceId, d.documentId);
-            await fetchDocs(query, page);
+            await fetchDocs(debouncedQuery, page);
         } catch (e: any) {
             console.error(e);
             alert(e?.response?.data?.message ?? "삭제 실패");
@@ -239,7 +252,10 @@ export default function FileViewerPanel({ workspaceId }: Props) {
             const fail = data.failed?.length ?? 0;
 
             alert(`업로드 완료! 성공 ${ok} / 실패 ${fail}`);
+
             setPage(0);
+            setDebouncedQuery(query);
+
             await fetchDocs(query, 0);
         } catch (e: any) {
             console.error(e);
@@ -290,7 +306,7 @@ export default function FileViewerPanel({ workspaceId }: Props) {
                         <div className="flex shrink-0 items-center gap-2">
                             <button
                                 type="button"
-                                onClick={() => fetchDocs(query, page)}
+                                onClick={() => fetchDocs(debouncedQuery, page)}
                                 disabled={docLoading || uploadLoading}
                                 className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
                             >
@@ -337,7 +353,9 @@ export default function FileViewerPanel({ workspaceId }: Props) {
                         {(uploadLoading || uploadProgress > 0) && (
                             <div className="rounded-[24px] border border-primary-100 bg-gradient-to-r from-primary-50 to-white p-4">
                                 <div className="flex items-center justify-between text-xs">
-                                    <span className="font-bold text-slate-700">업로드 진행률</span>
+                                    <span className="font-bold text-slate-700">
+                                        업로드 진행률
+                                    </span>
                                     <span className="font-black text-primary-700">
                                         {uploadProgress}%
                                     </span>
@@ -359,7 +377,7 @@ export default function FileViewerPanel({ workspaceId }: Props) {
                         )}
 
                         <div className="space-y-3">
-                            {docLoading ? (
+                            {docLoading && list.length === 0 ? (
                                 <div className="rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
                                     문서를 불러오는 중...
                                 </div>
@@ -376,71 +394,84 @@ export default function FileViewerPanel({ workspaceId }: Props) {
                                     </div>
                                 </div>
                             ) : (
-                                list.map((d) => {
-                                    const active = selected?.documentId === d.documentId;
-
-                                    return (
-                                        <div
-                                            key={d.documentId}
-                                            className={[
-                                                "rounded-[26px] border p-4 transition-all",
-                                                active
-                                                    ? "border-primary-200 bg-primary-50/70 shadow-[0_12px_30px_rgba(109,40,217,0.08)]"
-                                                    : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm",
-                                            ].join(" ")}
-                                        >
-                                            <div className="flex items-start gap-3">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => onPick(d)}
-                                                    className="flex min-w-0 flex-1 items-start gap-3 text-left"
-                                                >
-                                                    <div
-                                                        className={[
-                                                            "mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ring-1",
-                                                            active
-                                                                ? "bg-white text-primary-700 ring-primary-200"
-                                                                : "bg-slate-50 text-slate-500 ring-slate-200",
-                                                        ].join(" ")}
-                                                    >
-                                                        <FileText className="h-5 w-5" />
-                                                    </div>
-
-                                                    <div className="min-w-0 flex-1">
-                                                        <div className="truncate text-sm font-bold text-slate-900">
-                                                            {d.title ?? `문서 #${d.documentId}`}
-                                                        </div>
-
-                                                        <div className="mt-1 truncate text-xs text-slate-500">
-                                                            {d.filename ? d.filename : `doc #${d.documentId}`}
-                                                        </div>
-
-                                                        <div className="mt-1 text-[11px] text-slate-400">
-                                                            {formatDate(d.createdAt)}
-                                                        </div>
-                                                    </div>
-                                                </button>
-
-                                                <button
-                                                    type="button"
-                                                    onClick={() => onDelete(d)}
-                                                    disabled={docLoading}
-                                                    className="inline-flex shrink-0 items-center gap-2 rounded-full border border-rose-200 bg-white px-3 py-2 text-xs font-bold text-rose-700 transition hover:bg-rose-50 disabled:opacity-60"
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                    삭제
-                                                </button>
-                                            </div>
+                                <>
+                                    {docLoading && (
+                                        <div className="rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-500">
+                                            문서 목록을 갱신하는 중...
                                         </div>
-                                    );
-                                })
+                                    )}
+
+                                    {list.map((d) => {
+                                        const active =
+                                            selected?.documentId === d.documentId;
+
+                                        return (
+                                            <div
+                                                key={d.documentId}
+                                                className={[
+                                                    "rounded-[26px] border p-4 transition-all",
+                                                    active
+                                                        ? "border-primary-200 bg-primary-50/70 shadow-[0_12px_30px_rgba(109,40,217,0.08)]"
+                                                        : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm",
+                                                ].join(" ")}
+                                            >
+                                                <div className="flex items-start gap-3">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => onPick(d)}
+                                                        className="flex min-w-0 flex-1 items-start gap-3 text-left"
+                                                    >
+                                                        <div
+                                                            className={[
+                                                                "mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ring-1",
+                                                                active
+                                                                    ? "bg-white text-primary-700 ring-primary-200"
+                                                                    : "bg-slate-50 text-slate-500 ring-slate-200",
+                                                            ].join(" ")}
+                                                        >
+                                                            <FileText className="h-5 w-5" />
+                                                        </div>
+
+                                                        <div className="min-w-0 flex-1">
+                                                            <div className="truncate text-sm font-bold text-slate-900">
+                                                                {d.title ??
+                                                                    `문서 #${d.documentId}`}
+                                                            </div>
+
+                                                            <div className="mt-1 truncate text-xs text-slate-500">
+                                                                {d.filename
+                                                                    ? d.filename
+                                                                    : `doc #${d.documentId}`}
+                                                            </div>
+
+                                                            <div className="mt-1 text-[11px] text-slate-400">
+                                                                {formatDate(d.createdAt)}
+                                                            </div>
+                                                        </div>
+                                                    </button>
+
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => onDelete(d)}
+                                                        disabled={docLoading}
+                                                        className="inline-flex shrink-0 items-center gap-2 rounded-full border border-rose-200 bg-white px-3 py-2 text-xs font-bold text-rose-700 transition hover:bg-rose-50 disabled:opacity-60"
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                        삭제
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </>
                             )}
                         </div>
 
                         {docPage && totalPages > 1 && (
                             <div className="flex items-center justify-between rounded-[22px] border border-slate-200 bg-slate-50/70 px-4 py-3">
                                 <div className="text-xs text-slate-500">
-                                    {docPage.totalElements}개 · {docPage.number + 1}/{docPage.totalPages} 페이지
+                                    {docPage.totalElements}개 · {docPage.number + 1}/
+                                    {docPage.totalPages} 페이지
                                 </div>
 
                                 <div className="flex items-center gap-2">
@@ -524,7 +555,7 @@ export default function FileViewerPanel({ workspaceId }: Props) {
                             </div>
                         )}
 
-                        {selected && (
+                        {selected && viewerUrl && (
                             <div className="space-y-4">
                                 <div className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-4">
                                     <div className="text-sm font-bold text-slate-900">
@@ -535,43 +566,40 @@ export default function FileViewerPanel({ workspaceId }: Props) {
                                     </div>
                                 </div>
 
-                                {viewerMode === "pdf" && viewerUrl && (
-                                    <div className="overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-sm">
-                                        <iframe
-                                            title="pdf-viewer"
-                                            src={viewerUrl}
-                                            className="h-[620px] w-full"
-                                        />
-                                    </div>
+                                {viewerMode === "pdf" && (
+                                    <PdfViewer
+                                        url={viewerUrl}
+                                        filename={selected.filename ?? undefined}
+                                        title={selected.title ?? "PDF 미리보기"}
+                                        height={620}
+                                    />
                                 )}
 
                                 {viewerMode === "text" && (
-                                    <div className="overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-sm">
-                                        {textLoading ? (
-                                            <div className="px-5 py-8 text-sm text-slate-500">
-                                                텍스트를 불러오는 중...
-                                            </div>
-                                        ) : textError ? (
-                                            <div className="p-4">
-                                                <div className="rounded-[20px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
-                                                    {textError}
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <div className="max-h-[620px] overflow-auto px-5 py-4">
-                                                <pre className="whitespace-pre-wrap break-words text-sm leading-7 text-slate-800">
-                                                    {textContent}
-                                                </pre>
-                                            </div>
-                                        )}
-                                    </div>
+                                    <TextViewer
+                                        workspaceId={workspaceId}
+                                        documentId={selected.documentId}
+                                        versionId={
+                                            typeof selected.latestVersionId === "number"
+                                                ? selected.latestVersionId
+                                                : undefined
+                                        }
+                                        downloadUrl={viewerUrl}
+                                        filename={selected.filename ?? undefined}
+                                        title={selected.title ?? "텍스트 미리보기"}
+                                        height={620}
+                                    />
                                 )}
 
                                 {viewerMode === "unknown" && (
                                     <div className="rounded-[26px] border border-slate-200 bg-slate-50/80 px-5 py-6 text-sm leading-6 text-slate-600">
                                         이 파일 형식은 브라우저 미리보기가 제한될 수 있어요.
                                         <br />
-                                        상단의 <span className="font-semibold">새 탭에서 열기</span>로 확인해보세요.
+                                        상단의{" "}
+                                        <span className="font-semibold">
+                                            새 탭에서 열기
+                                        </span>
+                                        로 확인해보세요.
                                     </div>
                                 )}
                             </div>

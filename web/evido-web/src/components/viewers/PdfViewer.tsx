@@ -1,10 +1,14 @@
+import { memo } from "react";
 import { Worker, Viewer } from "@react-pdf-viewer/core";
 import { defaultLayoutPlugin } from "@react-pdf-viewer/default-layout";
 import { AlertTriangle, Download } from "lucide-react";
 
-const WORKER_URL = "https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
+import "@react-pdf-viewer/core/lib/styles/index.css";
+import "@react-pdf-viewer/default-layout/lib/styles/index.css";
 
-type Props = {
+import workerUrl from "pdfjs-dist/build/pdf.worker.min.js?url";
+
+type PdfViewerProps = {
     url: string;
     filename?: string;
     title?: string;
@@ -12,24 +16,34 @@ type Props = {
     height?: number;
 };
 
-export default function PdfViewer({ url, filename, title = "PDF 미리보기", className, height = 640 }: Props) {
+function PdfViewerInner({
+                            url,
+                            filename,
+                            title,
+                            className,
+                            height,
+                        }: Required<Pick<PdfViewerProps, "url" | "title" | "height">> &
+    Omit<PdfViewerProps, "url" | "title" | "height">) {
     const defaultLayoutPluginInstance = defaultLayoutPlugin();
 
-
-    if (!url) {
-        return (
-            <div className={["rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600", className].filter(Boolean).join(" ")}>
-                PDF URL이 없습니다.
-            </div>
-        );
-    }
-
     return (
-        <div className={["overflow-hidden rounded-2xl border border-slate-200 bg-white", className].filter(Boolean).join(" ")}>
+        <div
+            className={[
+                "overflow-hidden rounded-2xl border border-slate-200 bg-white",
+                className,
+            ]
+                .filter(Boolean)
+                .join(" ")}
+        >
             <div className="flex items-start justify-between gap-2 border-b border-slate-200 bg-slate-50 px-4 py-3">
                 <div className="min-w-0">
-                    <div className="truncate text-sm font-black text-slate-900">{title}</div>
-                    <div className="mt-0.5 truncate text-xs text-slate-500">{filename ?? url}</div>
+                    <div className="truncate text-sm font-black text-slate-900">
+                        {title}
+                    </div>
+
+                    <div className="mt-0.5 truncate text-xs text-slate-500">
+                        {filename ?? url}
+                    </div>
                 </div>
 
                 <a
@@ -44,7 +58,7 @@ export default function PdfViewer({ url, filename, title = "PDF 미리보기", c
             </div>
 
             <div style={{ height }} className="bg-white">
-                <Worker workerUrl={WORKER_URL}>
+                <Worker workerUrl={workerUrl}>
                     <Viewer
                         fileUrl={url}
                         plugins={[defaultLayoutPluginInstance]}
@@ -55,7 +69,8 @@ export default function PdfViewer({ url, filename, title = "PDF 미리보기", c
                                         <AlertTriangle className="h-4 w-4" />
                                         PDF 로드 실패
                                     </div>
-                                    <div className="mt-2 text-xs font-semibold text-rose-700 break-words">
+
+                                    <div className="mt-2 break-words text-xs font-semibold text-rose-700">
                                         {String(error?.message ?? error)}
                                     </div>
                                 </div>
@@ -67,3 +82,39 @@ export default function PdfViewer({ url, filename, title = "PDF 미리보기", c
         </div>
     );
 }
+
+function PdfViewer({
+                       url,
+                       filename,
+                       title = "PDF 미리보기",
+                       className,
+                       height = 640,
+                   }: PdfViewerProps) {
+    if (!url) {
+        return (
+            <div
+                className={[
+                    "rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600",
+                    className,
+                ]
+                    .filter(Boolean)
+                    .join(" ")}
+            >
+                PDF URL이 없습니다.
+            </div>
+        );
+    }
+
+    return (
+        <PdfViewerInner
+            key={url}
+            url={url}
+            filename={filename}
+            title={title}
+            className={className}
+            height={height}
+        />
+    );
+}
+
+export default memo(PdfViewer);
