@@ -4,13 +4,30 @@ import { AnimatePresence, motion } from "framer-motion";
 import Logo from "../../assets/Logo1.png";
 import useAuth from "../../hooks/useAuth";
 import api from "../../api/client";
-import { LayoutDashboard, HelpCircle, ChevronDown, ChevronRight, MoreHorizontal, Trash2, Pencil, Plus, MessageSquarePlus, UserRound, LogOut } from "lucide-react";
+import {
+    LayoutDashboard,
+    HelpCircle,
+    ChevronDown,
+    ChevronRight,
+    MoreHorizontal,
+    Trash2,
+    Pencil,
+    Plus,
+    MessageSquarePlus,
+    UserRound,
+    LogOut,
+} from "lucide-react";
+
 import type { Workspace } from "../../types/Workspace";
-import type { Conversation } from "../../types/Conversation";
+import type {
+    ConversationResponse,
+    ConversationListItem,
+} from "../../types/Conversation";
+import type { CommonResponse } from "../../types/ApiResponse";
+import type { WorkspaceInit } from "../../types/WorkspaceInit";
+
 import TextInputModal from "../common/TextInputModal";
 import ConfirmModal from "../common/ConfirmModal";
-import type {CommonResponse} from "../../types/ApiResponse.ts";
-import type {WorkspaceInit} from "../../types/WorkspaceInit.ts";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
@@ -25,7 +42,7 @@ type InputModalState =
     submitText?: string;
     initialValue?: string;
     workspace?: Workspace;
-    conversation?: Conversation;
+    conversation?: ConversationListItem;
 };
 
 type ConfirmModalState =
@@ -37,7 +54,20 @@ type ConfirmModalState =
     description?: string;
     confirmText?: string;
     workspace?: Workspace;
-    conversation?: Conversation;
+    conversation?: ConversationListItem;
+};
+
+const toConversationListItem = (
+    conversation: ConversationResponse
+): ConversationListItem => {
+    return {
+        id: String(conversation.id),
+        workspaceId: conversation.workspaceId,
+        title: conversation.title ?? "",
+        createdAt: conversation.createdAt
+            ? new Date(conversation.createdAt).getTime()
+            : Date.now(),
+    };
 };
 
 export default function Sidebar() {
@@ -46,7 +76,7 @@ export default function Sidebar() {
     const { user, loading } = useAuth();
 
     const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
-    const [conversations, setConversations] = useState<Conversation[]>([]);
+    const [conversations, setConversations] = useState<ConversationListItem[]>([]);
     const [wsOpen, setWsOpen] = useState(true);
 
     const [workspaceMenuOpenId, setWorkspaceMenuOpenId] = useState<number | null>(null);
@@ -66,17 +96,21 @@ export default function Sidebar() {
 
     const fetchWorkspaces = async (): Promise<Workspace[]> => {
         const res = await api.get<CommonResponse<Workspace[]>>("/api/workspaces");
-        const workspaces = res.data.data;
+
+        const workspaces = res.data.data ?? [];
+
         setWorkspaces(workspaces);
         return workspaces;
     };
 
-    const fetchConversations = async (wsId: string): Promise<Conversation[]> => {
-        const res = await api.get<CommonResponse<Conversation[]>>(
+    const fetchConversations = async (
+        wsId: string
+    ): Promise<ConversationListItem[]> => {
+        const res = await api.get<CommonResponse<ConversationResponse[]>>(
             `/api/conversations/${wsId}/conversations`
         );
 
-        const conversations = res.data.data;
+        const conversations = (res.data.data ?? []).map(toConversationListItem);
 
         setConversations(conversations);
         return conversations;
@@ -101,6 +135,7 @@ export default function Sidebar() {
     useEffect(() => {
         const handleClick = (e: MouseEvent) => {
             const target = e.target as HTMLElement;
+
             if (!target.closest("[data-sidebar-menu]")) {
                 closeAllMenus();
             }
@@ -112,6 +147,7 @@ export default function Sidebar() {
 
     const openCreateWorkspaceModal = () => {
         closeAllMenus();
+
         setInputModal({
             open: true,
             mode: "createWorkspace",
@@ -124,6 +160,7 @@ export default function Sidebar() {
 
     const openRenameWorkspaceModal = (ws: Workspace) => {
         closeAllMenus();
+
         setInputModal({
             open: true,
             mode: "renameWorkspace",
@@ -135,8 +172,9 @@ export default function Sidebar() {
         });
     };
 
-    const openRenameConversationModal = (conversation: Conversation) => {
+    const openRenameConversationModal = (conversation: ConversationListItem) => {
         closeAllMenus();
+
         setInputModal({
             open: true,
             mode: "renameConversation",
@@ -150,6 +188,7 @@ export default function Sidebar() {
 
     const openDeleteWorkspaceModal = (ws: Workspace) => {
         closeAllMenus();
+
         setConfirmModal({
             open: true,
             mode: "deleteWorkspace",
@@ -160,8 +199,9 @@ export default function Sidebar() {
         });
     };
 
-    const openDeleteConversationModal = (conversation: Conversation) => {
+    const openDeleteConversationModal = (conversation: ConversationListItem) => {
         closeAllMenus();
+
         setConfirmModal({
             open: true,
             mode: "deleteConversation",
@@ -184,7 +224,7 @@ export default function Sidebar() {
                     { name: value }
                 );
 
-                const createdWorkspaceId = res.data.data.id;
+                const createdWorkspaceId = res.data.data?.id;
 
                 await fetchWorkspaces();
                 setInputModal({ open: false });
@@ -204,11 +244,14 @@ export default function Sidebar() {
 
                 const updatedWorkspace = res.data.data;
 
+                if (!updatedWorkspace) {
+                    alert("워크스페이스 수정 응답이 올바르지 않습니다.");
+                    return;
+                }
+
                 setWorkspaces((prev) =>
                     prev.map((item) =>
-                        item.id === updatedWorkspace.id
-                            ? updatedWorkspace
-                            : item
+                        item.id === updatedWorkspace.id ? updatedWorkspace : item
                     )
                 );
 
@@ -217,12 +260,21 @@ export default function Sidebar() {
             }
 
             if (inputModal.mode === "renameConversation" && inputModal.conversation) {
-                const res = await api.patch<CommonResponse<Conversation>>(
+                const res = await api.patch<CommonResponse<ConversationResponse>>(
                     `/api/conversations/${inputModal.conversation.id}`,
                     { title: value }
                 );
 
-                const updatedConversation = res.data.data;
+                const updatedConversationResponse = res.data.data;
+
+                if (!updatedConversationResponse) {
+                    alert("대화 수정 응답이 올바르지 않습니다.");
+                    return;
+                }
+
+                const updatedConversation = toConversationListItem(
+                    updatedConversationResponse
+                );
 
                 setConversations((prev) =>
                     prev.map((item) =>
@@ -254,6 +306,7 @@ export default function Sidebar() {
                 await api.delete<CommonResponse<null>>(
                     `/api/conversations/${targetConversationId}`
                 );
+
                 const nextConversations = conversations.filter(
                     (item) => item.id !== targetConversationId
                 );
@@ -261,7 +314,8 @@ export default function Sidebar() {
                 setConversations(nextConversations);
                 setConfirmModal({ open: false });
 
-                const isCurrentConversation = String(targetConversationId) === conversationId;
+                const isCurrentConversation =
+                    String(targetConversationId) === conversationId;
 
                 if (isCurrentConversation) {
                     if (nextConversations.length > 0 && workspaceId) {
@@ -283,7 +337,9 @@ export default function Sidebar() {
                     `/api/workspaces/${targetWorkspaceId}`
                 );
 
-                const remaining = workspaces.filter((item) => item.id !== targetWorkspaceId);
+                const remaining = workspaces.filter(
+                    (item) => item.id !== targetWorkspaceId
+                );
 
                 setWorkspaces(remaining);
                 setConfirmModal({ open: false });
@@ -303,7 +359,7 @@ export default function Sidebar() {
                     "/api/workspaces/init"
                 );
 
-                const initWorkspaceId = initRes.data.data.workspaceId;
+                const initWorkspaceId = initRes.data.data?.workspaceId;
 
                 await fetchWorkspaces();
 
@@ -326,21 +382,25 @@ export default function Sidebar() {
         if (!workspaceId) return;
 
         try {
-            const res = await api.post<CommonResponse<Conversation>>(
+            const res = await api.post<CommonResponse<ConversationResponse>>(
                 `/api/conversations/${workspaceId}/conversations`
             );
 
-            const createdConversationId = res.data.data.id;
+            const createdConversationId = res.data.data?.id;
 
             const nextConversations = await fetchConversations(workspaceId);
 
             if (createdConversationId) {
-                navigate(`/workspace/${workspaceId}/conversation/${createdConversationId}`);
+                navigate(
+                    `/workspace/${workspaceId}/conversation/${createdConversationId}`
+                );
                 return;
             }
 
             if (nextConversations.length > 0) {
-                navigate(`/workspace/${workspaceId}/conversation/${nextConversations[0].id}`);
+                navigate(
+                    `/workspace/${workspaceId}/conversation/${nextConversations[0].id}`
+                );
             }
         } catch (error) {
             console.error(error);
@@ -379,7 +439,9 @@ export default function Sidebar() {
                             </span>
                             <span className="text-sm text-slate-400">AI</span>
                         </div>
-                        <div className="text-xs text-slate-400">문서 기반 지식 엔진</div>
+                        <div className="text-xs text-slate-400">
+                            문서 기반 지식 엔진
+                        </div>
                     </div>
                 </div>
 
@@ -411,7 +473,11 @@ export default function Sidebar() {
                             className="flex flex-1 items-center justify-between rounded-lg px-2 py-2 text-[11px] font-bold text-slate-400 transition hover:bg-slate-100"
                         >
                             WORKSPACES
-                            {wsOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                            {wsOpen ? (
+                                <ChevronDown size={14} />
+                            ) : (
+                                <ChevronRight size={14} />
+                            )}
                         </button>
 
                         <button
@@ -433,7 +499,8 @@ export default function Sidebar() {
                                 className="mt-1 space-y-1"
                             >
                                 {workspaces.map((ws) => {
-                                    const isActiveWorkspace = String(ws.id) === workspaceId;
+                                    const isActiveWorkspace =
+                                        String(ws.id) === workspaceId;
 
                                     return (
                                         <div
@@ -451,7 +518,9 @@ export default function Sidebar() {
                                             >
                                                 <span className="flex min-w-0 items-center gap-2">
                                                     <span className="h-2 w-2 rounded-full bg-primary-500" />
-                                                    <span className="truncate">{ws.name}</span>
+                                                    <span className="truncate">
+                                                        {ws.name}
+                                                    </span>
                                                 </span>
                                             </button>
 
@@ -502,7 +571,9 @@ export default function Sidebar() {
                                                             <button
                                                                 type="button"
                                                                 onClick={() =>
-                                                                    openRenameWorkspaceModal(ws)
+                                                                    openRenameWorkspaceModal(
+                                                                        ws
+                                                                    )
                                                                 }
                                                                 className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
                                                             >
@@ -513,7 +584,9 @@ export default function Sidebar() {
                                                             <button
                                                                 type="button"
                                                                 onClick={() =>
-                                                                    openDeleteWorkspaceModal(ws)
+                                                                    openDeleteWorkspaceModal(
+                                                                        ws
+                                                                    )
                                                                 }
                                                                 className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-red-500 hover:bg-red-50"
                                                             >
@@ -535,7 +608,9 @@ export default function Sidebar() {
                 {workspaceId && (
                     <div className="mt-6 flex-1 overflow-y-auto pr-1">
                         <div className="mb-2 flex items-center justify-between px-1">
-                            <p className="px-2 text-[11px] font-bold text-slate-400">대화</p>
+                            <p className="px-2 text-[11px] font-bold text-slate-400">
+                                대화
+                            </p>
 
                             <button
                                 type="button"
@@ -585,7 +660,8 @@ export default function Sidebar() {
                                                 );
                                             }}
                                             className={`rounded-lg p-1.5 transition ${
-                                                conversationMenuOpenId === conversation.id
+                                                conversationMenuOpenId ===
+                                                conversation.id
                                                     ? "bg-white text-slate-700 shadow-sm"
                                                     : "text-slate-400 opacity-0 group-hover:opacity-100 hover:bg-white hover:text-slate-700"
                                             }`}
@@ -594,53 +670,54 @@ export default function Sidebar() {
                                         </button>
 
                                         <AnimatePresence>
-                                            {conversationMenuOpenId === conversation.id && (
-                                                <motion.div
-                                                    data-sidebar-menu
-                                                    initial={{
-                                                        opacity: 0,
-                                                        scale: 0.95,
-                                                        y: -4,
-                                                    }}
-                                                    animate={{
-                                                        opacity: 1,
-                                                        scale: 1,
-                                                        y: 0,
-                                                    }}
-                                                    exit={{
-                                                        opacity: 0,
-                                                        scale: 0.95,
-                                                        y: -4,
-                                                    }}
-                                                    className="absolute right-0 top-10 z-20 w-40 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_16px_40px_rgba(15,23,42,0.14)]"
-                                                >
-                                                    <button
-                                                        type="button"
-                                                        onClick={() =>
-                                                            openRenameConversationModal(
-                                                                conversation
-                                                            )
-                                                        }
-                                                        className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+                                            {conversationMenuOpenId ===
+                                                conversation.id && (
+                                                    <motion.div
+                                                        data-sidebar-menu
+                                                        initial={{
+                                                            opacity: 0,
+                                                            scale: 0.95,
+                                                            y: -4,
+                                                        }}
+                                                        animate={{
+                                                            opacity: 1,
+                                                            scale: 1,
+                                                            y: 0,
+                                                        }}
+                                                        exit={{
+                                                            opacity: 0,
+                                                            scale: 0.95,
+                                                            y: -4,
+                                                        }}
+                                                        className="absolute right-0 top-10 z-20 w-40 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_16px_40px_rgba(15,23,42,0.14)]"
                                                     >
-                                                        <Pencil size={14} />
-                                                        이름 변경
-                                                    </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                openRenameConversationModal(
+                                                                    conversation
+                                                                )
+                                                            }
+                                                            className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+                                                        >
+                                                            <Pencil size={14} />
+                                                            이름 변경
+                                                        </button>
 
-                                                    <button
-                                                        type="button"
-                                                        onClick={() =>
-                                                            openDeleteConversationModal(
-                                                                conversation
-                                                            )
-                                                        }
-                                                        className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-red-500 hover:bg-red-50"
-                                                    >
-                                                        <Trash2 size={14} />
-                                                        삭제
-                                                    </button>
-                                                </motion.div>
-                                            )}
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                openDeleteConversationModal(
+                                                                    conversation
+                                                                )
+                                                            }
+                                                            className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-red-500 hover:bg-red-50"
+                                                        >
+                                                            <Trash2 size={14} />
+                                                            삭제
+                                                        </button>
+                                                    </motion.div>
+                                                )}
                                         </AnimatePresence>
                                     </div>
                                 </div>
@@ -712,7 +789,9 @@ export default function Sidebar() {
 
                                     <div className="min-w-0 flex-1">
                                         <div className="text-sm font-bold text-slate-700">
-                                            {isGuest ? "게스트 사용 중" : "로그인이 필요합니다"}
+                                            {isGuest
+                                                ? "게스트 사용 중"
+                                                : "로그인이 필요합니다"}
                                         </div>
                                         <div className="mt-0.5 text-xs text-slate-500">
                                             Google 계정으로 계속하기
