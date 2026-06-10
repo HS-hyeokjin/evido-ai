@@ -18,12 +18,8 @@ app = FastAPI(title="EVIDO RAG Server")
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    logger.error(
-        "[422에러] url=%s errors=%s",
-        request.url,
-        exc.errors()
-    )
-    return JSONResponse(status_code=422, content={"detail": exc.errors()})
+    logger.error("[422에러] url=%s errors=%s", request.url, exc.errors())
+    return JSONResponse(status_code=422, content={"message": "요청 형식이 올바르지 않습니다."})
 
 @app.get("/health")
 def health():
