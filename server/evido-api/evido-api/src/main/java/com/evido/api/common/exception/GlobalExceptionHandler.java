@@ -69,6 +69,8 @@ public class GlobalExceptionHandler {
             MaxUploadSizeExceededException e,
             HttpServletRequest request
     ) {
+        ErrorCode errorCode = ErrorCode.FILE_SIZE_EXCEEDED;
+
         log.warn(
                 "[업로드 파일 용량 초과] path={}, message={}",
                 request.getRequestURI(),
@@ -76,10 +78,10 @@ public class GlobalExceptionHandler {
         );
 
         return ResponseEntity
-                .status(HttpStatus.PAYLOAD_TOO_LARGE)
+                .status(errorCode.getStatus())
                 .body(CommonResponse.fail(
-                        "FILE_SIZE_EXCEEDED",
-                        "업로드 가능한 최대 용량을 초과했습니다."
+                        errorCode.getCode(),
+                        errorCode.getMessage()
                 ));
     }
 
