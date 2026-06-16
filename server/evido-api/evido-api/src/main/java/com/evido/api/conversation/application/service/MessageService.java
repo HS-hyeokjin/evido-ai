@@ -1,5 +1,7 @@
 package com.evido.api.conversation.application.service;
 
+import com.evido.api.common.exception.BusinessException;
+import com.evido.api.common.exception.ErrorCode;
 import com.evido.api.conversation.application.dto.MessageResult;
 import com.evido.api.conversation.application.dto.SendMessageResult;
 import com.evido.api.conversation.application.port.in.MessageUseCase;
@@ -168,7 +170,7 @@ public class MessageService implements MessageUseCase {
 
     private void validateAccess(Long workspaceId, String userId) {
         if (!workspaceAccessPort.hasAccess(workspaceId, userId)) {
-            throw new RuntimeException("워크스페이스 접근 권한이 없습니다.");
+            throw new BusinessException(ErrorCode.WORKSPACE_ACCESS_DENIED);
         }
     }
 
