@@ -1,7 +1,8 @@
 import type { AxiosProgressEvent } from "axios";
 import api from "./client";
+import { deleteData, getData } from "./http";
 import type { CommonResponse } from "../types/ApiResponse";
-import { unwrapResponse } from "../types/ApiResponse";
+import { unwrapData } from "./response";
 
 export type PageResponse<T> = {
     content: T[];
@@ -55,32 +56,25 @@ export type UploadDocumentsBulkParams = {
 const documentBasePath = (workspaceId: number) =>
     `/api/workspaces/${workspaceId}/documents`;
 
-export async function listDocuments(
+export function listDocuments(
     workspaceId: number,
     params: ListDocumentsParams = {}
 ): Promise<PageResponse<DocumentListItem>> {
-    const { data } = await api.get<CommonResponse<PageResponse<DocumentListItem>>>(
-        documentBasePath(workspaceId),
-        {
-            params: {
-                q: params.query,
-                page: params.page ?? 0,
-                size: params.size ?? 10,
-                sort: params.sort ?? "createdAt,desc",
-            },
-        }
-    );
-
-    return unwrapResponse(data);
+    return getData<PageResponse<DocumentListItem>>(documentBasePath(workspaceId), {
+        params: {
+            q: params.query,
+            page: params.page ?? 0,
+            size: params.size ?? 10,
+            sort: params.sort ?? "createdAt,desc",
+        },
+    });
 }
 
-export async function deleteDocument(
+export function deleteDocument(
     workspaceId: number,
     documentId: number
 ): Promise<void> {
-    await api.delete<CommonResponse<null>>(
-        `${documentBasePath(workspaceId)}/${documentId}`
-    );
+    return deleteData(`${documentBasePath(workspaceId)}/${documentId}`);
 }
 
 export async function uploadDocumentsBulk(
@@ -113,7 +107,7 @@ export async function uploadDocumentsBulk(
         }
     );
 
-    return unwrapResponse(data);
+    return unwrapData(data);
 }
 
 export async function getDocumentTextContent(
@@ -151,19 +145,14 @@ export function getDocumentFileUrl(
     return url.pathname + url.search;
 }
 
-export async function getDocumentDownloadUrl(
+export function getDocumentDownloadUrl(
     workspaceId: number,
     documentId: number,
     versionId?: number
 ): Promise<string> {
-    const { data } = await api.get<CommonResponse<string>>(
-        `${documentBasePath(workspaceId)}/${documentId}/download`,
-        {
-            params: {
-                versionId,
-            },
-        }
-    );
-
-    return unwrapResponse(data);
+    return getData<string>(`${documentBasePath(workspaceId)}/${documentId}/download`, {
+        params: {
+            versionId,
+        },
+    });
 }
