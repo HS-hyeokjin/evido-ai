@@ -1,18 +1,21 @@
-import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { listDocuments } from "../../api/documents";
-import api from "../../api/client";
+import { useCallback, useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { MessageSquareText, Plus, UploadCloud, FileText, Sparkles, ChevronRight, FolderOpen } from "lucide-react";
-import type {CommonResponse} from "../../types/ApiResponse.ts";
+import {
+    MessageSquareText,
+    Plus,
+    UploadCloud,
+    FileText,
+    Sparkles,
+    ChevronRight,
+    FolderOpen,
+} from "lucide-react";
 
-interface Conversation {
-    id: number;
-    title: string;
-    createdAt: string;
-}
+import { listConversations } from "../../api/conversations";
+import { listDocuments } from "../../api/documents";
+import type { ConversationResponse } from "../../types/Conversation";
 
-interface Document {
+interface RecentDocument {
     documentId: number;
     title?: string | null;
     createdAt?: string | null;
@@ -22,25 +25,30 @@ export default function ConversationListPage() {
     const { workspaceId } = useParams();
     const navigate = useNavigate();
 
-    const [conversations, setConversations] = useState<Conversation[]>([]);
-    const [documents, setDocuments] = useState<Document[]>([]);
+    const [conversations, setConversations] = useState<ConversationResponse[]>([]);
+    const [documents, setDocuments] = useState<RecentDocument[]>([]);
+    const [documentTotalCount, setDocumentTotalCount] = useState(0);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        void fetchAll();
-    }, [workspaceId]);
+    const fetchAll = useCallback(async () => {
+        if (!workspaceId) {
+            setLoading(false);
+            return;
+        }
 
-    const fetchAll = async () => {
-        if (!workspaceId) return;
+        const workspaceIdNumber = Number(workspaceId);
+
+        if (Number.isNaN(workspaceIdNumber)) {
+            console.error("잘못된 workspaceId:", workspaceId);
+            setLoading(false);
+            return;
+        }
 
         setLoading(true);
-        try {
-            const workspaceIdNumber = Number(workspaceId);
 
-            const [conversationRes, docPage] = await Promise.all([
-                api.get<CommonResponse<Conversation[]>>(
-                    `/api/conversations/${workspaceId}/conversations`
-                ),
+        try {
+            const [conversationList, docPage] = await Promise.all([
+                listConversations(workspaceId),
                 listDocuments(workspaceIdNumber, {
                     page: 0,
                     size: 5,
@@ -48,23 +56,65 @@ export default function ConversationListPage() {
                 }),
             ]);
 
-            setConversations(conversationRes.data.data ?? []);
+            setConversations(conversationList);
+
             setDocuments(
                 (docPage.content ?? []).map((doc) => ({
                     documentId: doc.documentId,
-                    title: doc.title ?? null,
+                    title: doc.title ?? doc.filename ?? null,
                     createdAt: doc.createdAt ?? null,
                 }))
             );
-        } catch (e) {
-            console.error("대화/문서 조회 실패", e);
+
+            setDocumentTotalCount(docPage.totalElements ?? 0);
+        } catch (error) {
+            console.error("대화/문서 조회 실패", error);
+            setConversations([]);
+            setDocuments([]);
+            setDocumentTotalCount(0);
         } finally {
             setLoading(false);
         }
-    };
+    }, [workspaceId]);
+
+    useEffect(() => {
+        void fetchAll();
+    }, [fetchAll]);
 
     const handleCreateConversation = () => {
+        if (!workspaceId) return;
+
         navigate(`/workspace/${workspaceId}/conversation/new`);
+    };
+
+    const handleMoveUpload = () => {
+        if (!workspaceId) return;
+
+        navigate(`/workspace/${workspaceId}/documents/upload`);
+    };
+
+    const formatConversationDate = (createdAt?: string | null) => {
+        if (!createdAt) return "-";
+
+        const date = new Date(createdAt);
+
+        if (Number.isNaN(date.getTime())) {
+            return "-";
+        }
+
+        return date.toLocaleString();
+    };
+
+    const formatDocumentDate = (createdAt?: string | null) => {
+        if (!createdAt) return "-";
+
+        const date = new Date(createdAt);
+
+        if (Number.isNaN(date.getTime())) {
+            return "-";
+        }
+
+        return date.toLocaleDateString();
     };
 
     return (
@@ -101,19 +151,27 @@ export default function ConversationListPage() {
 
                     <div className="relative mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-3">
                         <div className="rounded-xl border border-[#EEE7FB] bg-white/75 px-3.5 py-3 backdrop-blur">
-                            <div className="text-[11px] font-semibold text-[#9A8CB8]">대화</div>
+                            <div className="text-[11px] font-semibold text-[#9A8CB8]">
+                                대화
+                            </div>
                             <div className="mt-1 text-xl font-black text-slate-900">
                                 {conversations.length}
                             </div>
                         </div>
+
                         <div className="rounded-xl border border-[#EEE7FB] bg-white/75 px-3.5 py-3 backdrop-blur">
-                            <div className="text-[11px] font-semibold text-[#9A8CB8]">문서</div>
+                            <div className="text-[11px] font-semibold text-[#9A8CB8]">
+                                문서
+                            </div>
                             <div className="mt-1 text-xl font-black text-slate-900">
-                                {documents.length}
+                                {documentTotalCount}
                             </div>
                         </div>
+
                         <div className="rounded-xl border border-[#EEE7FB] bg-white/75 px-3.5 py-3 backdrop-blur">
-                            <div className="text-[11px] font-semibold text-[#9A8CB8]">상태</div>
+                            <div className="text-[11px] font-semibold text-[#9A8CB8]">
+                                상태
+                            </div>
                             <div className="mt-1 text-xs font-bold text-[#7C63B8]">
                                 {loading ? "불러오는 중" : "준비 완료"}
                             </div>
@@ -127,8 +185,11 @@ export default function ConversationListPage() {
                             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#F4EEFF] text-[#8A72B8]">
                                 <MessageSquareText size={18} />
                             </div>
+
                             <div>
-                                <div className="text-base font-black text-slate-900">대화</div>
+                                <div className="text-base font-black text-slate-900">
+                                    대화
+                                </div>
                                 <div className="text-xs text-[#8B84A0]">
                                     최근 대화를 이어가거나 새로 시작해보세요
                                 </div>
@@ -172,7 +233,9 @@ export default function ConversationListPage() {
                                     transition={{ delay: index * 0.05 }}
                                     whileHover={{ y: -4, scale: 1.01 }}
                                     onClick={() =>
-                                        navigate(`/workspace/${workspaceId}/conversation/${conversation.id}`)
+                                        navigate(
+                                            `/workspace/${workspaceId}/conversation/${conversation.id}`
+                                        )
                                     }
                                     className="group cursor-pointer rounded-2xl border border-[#EEE7FB] bg-gradient-to-b from-white to-[#FCFAFF] p-4 shadow-[0_6px_18px_rgba(132,107,184,0.05)] transition hover:border-[#DCCBFA] hover:shadow-[0_10px_22px_rgba(132,107,184,0.10)]"
                                 >
@@ -192,7 +255,7 @@ export default function ConversationListPage() {
                                     </div>
 
                                     <div className="mt-2 text-[11px] text-[#9A93AD]">
-                                        {new Date(conversation.createdAt).toLocaleString()}
+                                        {formatConversationDate(conversation.createdAt)}
                                     </div>
                                 </motion.div>
                             ))}
@@ -206,8 +269,11 @@ export default function ConversationListPage() {
                             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#F4EEFF] text-[#8A72B8]">
                                 <FileText size={18} />
                             </div>
+
                             <div>
-                                <div className="text-base font-black text-slate-900">문서</div>
+                                <div className="text-base font-black text-slate-900">
+                                    문서
+                                </div>
                                 <div className="text-xs text-[#8B84A0]">
                                     최근 업로드한 문서
                                 </div>
@@ -215,9 +281,7 @@ export default function ConversationListPage() {
                         </div>
 
                         <button
-                            onClick={() =>
-                                navigate(`/workspace/${workspaceId}/documents/upload`)
-                            }
+                            onClick={handleMoveUpload}
                             className="inline-flex items-center gap-1.5 rounded-xl border border-[#E9DFFB] bg-[#FCFAFF] px-3 py-2 text-xs font-semibold text-[#7C63B8] transition hover:bg-[#F7F1FF]"
                         >
                             <UploadCloud size={14} />
@@ -225,14 +289,20 @@ export default function ConversationListPage() {
                         </button>
                     </div>
 
-                    {documents.length === 0 ? (
+                    {loading ? (
+                        <div className="flex h-32 items-center justify-center rounded-2xl border border-[#EEE7FB] bg-[#FCFAFF] text-xs font-medium text-[#9A93AD]">
+                            불러오는 중...
+                        </div>
+                    ) : documents.length === 0 ? (
                         <div className="flex h-36 flex-col items-center justify-center rounded-2xl border border-dashed border-[#E9DFFB] bg-gradient-to-b from-[#FEFDFF] to-[#FAF7FF] text-center">
                             <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-xl bg-[#F4EEFF] text-[#B19AD8]">
                                 <FolderOpen size={22} />
                             </div>
+
                             <div className="text-sm font-semibold text-slate-700">
                                 아직 업로드된 문서가 없습니다
                             </div>
+
                             <div className="mt-1 text-xs text-[#9A93AD]">
                                 문서를 업로드해보세요
                             </div>
@@ -242,16 +312,19 @@ export default function ConversationListPage() {
                             {documents.map((doc, index) => (
                                 <motion.button
                                     key={doc.documentId}
+                                    type="button"
                                     initial={{ opacity: 0, y: 10 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ delay: index * 0.04 }}
                                     whileHover={{ y: -3, scale: 1.01 }}
+                                    onClick={handleMoveUpload}
                                     className="group rounded-2xl border border-[#EEE7FB] bg-gradient-to-b from-white to-[#FCFAFF] p-4 text-left shadow-[0_6px_18px_rgba(132,107,184,0.05)] transition hover:border-[#DCCBFA] hover:shadow-[0_10px_22px_rgba(132,107,184,0.10)]"
                                 >
                                     <div className="mb-3 flex items-start justify-between gap-3">
                                         <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#F4EEFF] text-[#8A72B8]">
                                             <FileText size={16} />
                                         </div>
+
                                         <ChevronRight
                                             size={14}
                                             className="mt-1 text-[#C5B6E6] transition group-hover:translate-x-0.5 group-hover:text-[#9F86D8]"
@@ -263,9 +336,7 @@ export default function ConversationListPage() {
                                     </div>
 
                                     <div className="mt-2 text-[11px] text-[#9A93AD]">
-                                        {doc.createdAt
-                                            ? new Date(doc.createdAt).toLocaleDateString()
-                                            : "-"}
+                                        {formatDocumentDate(doc.createdAt)}
                                     </div>
                                 </motion.button>
                             ))}
