@@ -1,9 +1,6 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { NavLink, useNavigate, useParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import Logo from "../../assets/Logo1.png";
-import useAuth from "../../hooks/useAuth";
-import api from "../../api/client";
 import {
     LayoutDashboard,
     HelpCircle,
@@ -18,13 +15,29 @@ import {
     LogOut,
 } from "lucide-react";
 
+import Logo from "../../assets/Logo1.png";
+import useAuth from "../../hooks/useAuth";
+import api from "../../api/client";
+import {
+    createWorkspace,
+    initWorkspace,
+    listWorkspaces,
+    removeWorkspace,
+    renameWorkspace,
+} from "../../api/workspaces";
+import {
+    createConversation as createConversationApi,
+    listConversations,
+    removeConversation,
+    renameConversation,
+} from "../../api/conversations";
+import { getApiErrorMessage } from "../../utils/getApiErrorMessage";
+
 import type { Workspace } from "../../types/Workspace";
 import type {
-    ConversationResponse,
     ConversationListItem,
+    ConversationResponse,
 } from "../../types/Conversation";
-import type { CommonResponse } from "../../types/ApiResponse";
-import type { WorkspaceInit } from "../../types/WorkspaceInit";
 
 import TextInputModal from "../common/TextInputModal";
 import ConfirmModal from "../common/ConfirmModal";
@@ -79,11 +92,19 @@ export default function Sidebar() {
     const [conversations, setConversations] = useState<ConversationListItem[]>([]);
     const [wsOpen, setWsOpen] = useState(true);
 
-    const [workspaceMenuOpenId, setWorkspaceMenuOpenId] = useState<number | null>(null);
-    const [conversationMenuOpenId, setConversationMenuOpenId] = useState<string | null>(null);
+    const [workspaceMenuOpenId, setWorkspaceMenuOpenId] = useState<number | null>(
+        null
+    );
+    const [conversationMenuOpenId, setConversationMenuOpenId] = useState<
+        string | null
+    >(null);
 
-    const [inputModal, setInputModal] = useState<InputModalState>({ open: false });
-    const [confirmModal, setConfirmModal] = useState<ConfirmModalState>({ open: false });
+    const [inputModal, setInputModal] = useState<InputModalState>({
+        open: false,
+    });
+    const [confirmModal, setConfirmModal] = useState<ConfirmModalState>({
+        open: false,
+    });
     const [modalLoading, setModalLoading] = useState(false);
 
     const isUser = user?.role === "ROLE_USER";
@@ -94,27 +115,23 @@ export default function Sidebar() {
         setConversationMenuOpenId(null);
     };
 
-    const fetchWorkspaces = async (): Promise<Workspace[]> => {
-        const res = await api.get<CommonResponse<Workspace[]>>("/api/workspaces");
+    const fetchWorkspaces = useCallback(async (): Promise<Workspace[]> => {
+        const workspaceList = await listWorkspaces();
 
-        const workspaces = res.data.data ?? [];
+        setWorkspaces(workspaceList);
+        return workspaceList;
+    }, []);
 
-        setWorkspaces(workspaces);
-        return workspaces;
-    };
+    const fetchConversations = useCallback(
+        async (wsId: string | number): Promise<ConversationListItem[]> => {
+            const conversationList = await listConversations(wsId);
+            const items = conversationList.map(toConversationListItem);
 
-    const fetchConversations = async (
-        wsId: string
-    ): Promise<ConversationListItem[]> => {
-        const res = await api.get<CommonResponse<ConversationResponse[]>>(
-            `/api/conversations/${wsId}/conversations`
-        );
-
-        const conversations = (res.data.data ?? []).map(toConversationListItem);
-
-        setConversations(conversations);
-        return conversations;
-    };
+            setConversations(items);
+            return items;
+        },
+        []
+    );
 
     const moveToWorkspace = (wsId: number | string) => {
         navigate(`/workspace/${wsId}`);
@@ -122,7 +139,7 @@ export default function Sidebar() {
 
     useEffect(() => {
         void fetchWorkspaces();
-    }, []);
+    }, [fetchWorkspaces]);
 
     useEffect(() => {
         if (workspaceId) {
@@ -130,7 +147,7 @@ export default function Sidebar() {
         } else {
             setConversations([]);
         }
-    }, [workspaceId]);
+    }, [workspaceId, conversationId, fetchConversations]);
 
     useEffect(() => {
         const handleClick = (e: MouseEvent) => {
@@ -206,7 +223,9 @@ export default function Sidebar() {
             open: true,
             mode: "deleteConversation",
             title: "대화를 삭제할까요?",
-            description: `'${conversation.title || "제목 없음"}' 대화를 삭제하면 되돌릴 수 없어.`,
+            description: `'${
+                conversation.title || "제목 없음"
+            }' 대화를 삭제하면 되돌릴 수 없어.`,
             confirmText: "삭제",
             conversation,
         });
@@ -219,35 +238,20 @@ export default function Sidebar() {
             setModalLoading(true);
 
             if (inputModal.mode === "createWorkspace") {
-                const res = await api.post<CommonResponse<Workspace>>(
-                    "/api/workspaces",
-                    { name: value }
-                );
-
-                const createdWorkspaceId = res.data.data?.id;
+                const createdWorkspace = await createWorkspace(value);
 
                 await fetchWorkspaces();
                 setInputModal({ open: false });
 
-                if (createdWorkspaceId) {
-                    moveToWorkspace(createdWorkspaceId);
-                }
-
+                moveToWorkspace(createdWorkspace.id);
                 return;
             }
 
             if (inputModal.mode === "renameWorkspace" && inputModal.workspace) {
-                const res = await api.patch<CommonResponse<Workspace>>(
-                    `/api/workspaces/${inputModal.workspace.id}`,
-                    { name: value }
+                const updatedWorkspace = await renameWorkspace(
+                    inputModal.workspace.id,
+                    value
                 );
-
-                const updatedWorkspace = res.data.data;
-
-                if (!updatedWorkspace) {
-                    alert("워크스페이스 수정 응답이 올바르지 않습니다.");
-                    return;
-                }
 
                 setWorkspaces((prev) =>
                     prev.map((item) =>
@@ -259,18 +263,14 @@ export default function Sidebar() {
                 return;
             }
 
-            if (inputModal.mode === "renameConversation" && inputModal.conversation) {
-                const res = await api.patch<CommonResponse<ConversationResponse>>(
-                    `/api/conversations/${inputModal.conversation.id}`,
-                    { title: value }
+            if (
+                inputModal.mode === "renameConversation" &&
+                inputModal.conversation
+            ) {
+                const updatedConversationResponse = await renameConversation(
+                    inputModal.conversation.id,
+                    value
                 );
-
-                const updatedConversationResponse = res.data.data;
-
-                if (!updatedConversationResponse) {
-                    alert("대화 수정 응답이 올바르지 않습니다.");
-                    return;
-                }
 
                 const updatedConversation = toConversationListItem(
                     updatedConversationResponse
@@ -288,7 +288,7 @@ export default function Sidebar() {
             }
         } catch (error) {
             console.error(error);
-            alert("요청 처리에 실패했습니다.");
+            alert(getApiErrorMessage(error));
         } finally {
             setModalLoading(false);
         }
@@ -300,12 +300,13 @@ export default function Sidebar() {
         try {
             setModalLoading(true);
 
-            if (confirmModal.mode === "deleteConversation" && confirmModal.conversation) {
+            if (
+                confirmModal.mode === "deleteConversation" &&
+                confirmModal.conversation
+            ) {
                 const targetConversationId = confirmModal.conversation.id;
 
-                await api.delete<CommonResponse<null>>(
-                    `/api/conversations/${targetConversationId}`
-                );
+                await removeConversation(targetConversationId);
 
                 const nextConversations = conversations.filter(
                     (item) => item.id !== targetConversationId
@@ -330,12 +331,13 @@ export default function Sidebar() {
                 return;
             }
 
-            if (confirmModal.mode === "deleteWorkspace" && confirmModal.workspace) {
+            if (
+                confirmModal.mode === "deleteWorkspace" &&
+                confirmModal.workspace
+            ) {
                 const targetWorkspaceId = confirmModal.workspace.id;
 
-                await api.delete<CommonResponse<null>>(
-                    `/api/workspaces/${targetWorkspaceId}`
-                );
+                await removeWorkspace(targetWorkspaceId);
 
                 const remaining = workspaces.filter(
                     (item) => item.id !== targetWorkspaceId
@@ -355,16 +357,13 @@ export default function Sidebar() {
                     return;
                 }
 
-                const initRes = await api.get<CommonResponse<WorkspaceInit>>(
-                    "/api/workspaces/init"
-                );
-
-                const initWorkspaceId = initRes.data.data?.workspaceId;
+                const initializedWorkspace = await initWorkspace();
+                const initializedWorkspaceId = initializedWorkspace.workspaceId;
 
                 await fetchWorkspaces();
 
-                if (initWorkspaceId) {
-                    navigate(`/workspace/${initWorkspaceId}`);
+                if (initializedWorkspaceId) {
+                    navigate(`/workspace/${initializedWorkspaceId}`);
                     return;
                 }
 
@@ -372,27 +371,22 @@ export default function Sidebar() {
             }
         } catch (error) {
             console.error(error);
-            alert("삭제 처리에 실패했습니다.");
+            alert(getApiErrorMessage(error));
         } finally {
             setModalLoading(false);
         }
     };
 
-    const createConversation = async () => {
+    const handleCreateConversation = async () => {
         if (!workspaceId) return;
 
         try {
-            const res = await api.post<CommonResponse<ConversationResponse>>(
-                `/api/conversations/${workspaceId}/conversations`
-            );
-
-            const createdConversationId = res.data.data?.id;
-
+            const createdConversation = await createConversationApi(workspaceId);
             const nextConversations = await fetchConversations(workspaceId);
 
-            if (createdConversationId) {
+            if (createdConversation.id) {
                 navigate(
-                    `/workspace/${workspaceId}/conversation/${createdConversationId}`
+                    `/workspace/${workspaceId}/conversation/${createdConversation.id}`
                 );
                 return;
             }
@@ -404,7 +398,7 @@ export default function Sidebar() {
             }
         } catch (error) {
             console.error(error);
-            alert("대화 생성에 실패했습니다.");
+            alert(getApiErrorMessage(error));
         }
     };
 
@@ -415,7 +409,7 @@ export default function Sidebar() {
             window.location.reload();
         } catch (error) {
             console.error(error);
-            alert("로그아웃에 실패했습니다.");
+            alert(getApiErrorMessage(error));
         }
     };
 
@@ -614,7 +608,7 @@ export default function Sidebar() {
 
                             <button
                                 type="button"
-                                onClick={createConversation}
+                                onClick={handleCreateConversation}
                                 className="rounded-lg p-2 text-slate-400 transition hover:bg-primary-50 hover:text-primary-600"
                                 title="새 대화"
                             >

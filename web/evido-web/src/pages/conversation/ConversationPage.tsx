@@ -1,15 +1,25 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+    type KeyboardEvent,
+} from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import Button from "../../components/common/Button";
-import api from "../../api/client";
 import { Send, Sparkles } from "lucide-react";
-import FileViewerPanel from "./FileViewerPanel.tsx";
-import type { CommonResponse } from "../../types/ApiResponse";
+
+import Button from "../../components/common/Button";
+import FileViewerPanel from "./FileViewerPanel";
+import {
+    getConversationMessages,
+    sendConversationMessage,
+    sendFirstMessage,
+} from "../../api/conversations";
+import { getApiErrorMessage } from "../../utils/getApiErrorMessage";
 import type {
-    MessageResponse,
-    SendMessageResponse,
     ConversationMessage,
+    MessageResponse,
 } from "../../types/Conversation";
 
 const STARTER_PROMPTS = [
@@ -20,13 +30,40 @@ const STARTER_PROMPTS = [
     "회의에서 공유할 수 있게 요약해줘",
 ];
 
+function toConversationMessage(message: MessageResponse): ConversationMessage {
+    return {
+        id: message.id?.toString?.() ?? crypto.randomUUID(),
+        role:
+            message.role?.toLowerCase() === "user"
+                ? "user"
+                : "assistant",
+        text: message.content ?? "",
+        createdAt: message.createdAt
+            ? new Date(message.createdAt).getTime()
+            : Date.now(),
+    };
+}
+
+function toMessageTime(createdAt?: string | null) {
+    if (!createdAt) return Date.now();
+
+    const time = new Date(createdAt).getTime();
+
+    return Number.isNaN(time) ? Date.now() : time;
+}
+
 export default function ConversationPage() {
     const { workspaceId: wsParam, conversationId: conversationParam } = useParams();
     const navigate = useNavigate();
 
     const workspaceId = Number(wsParam);
+    const isValidWorkspaceId = !Number.isNaN(workspaceId) && workspaceId > 0;
+
     const isNewConversation = conversationParam === "new";
     const conversationId = isNewConversation ? null : Number(conversationParam);
+    const isValidConversationId =
+        isNewConversation ||
+        (!!conversationId && !Number.isNaN(conversationId) && conversationId > 0);
 
     const [q, setQ] = useState("");
     const [loading, setLoading] = useState(false);
@@ -36,8 +73,8 @@ export default function ConversationPage() {
     const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
     const canAsk = useMemo(() => {
-        return !!q.trim() && !loading && !!workspaceId;
-    }, [q, loading, workspaceId]);
+        return !!q.trim() && !loading && isValidWorkspaceId && isValidConversationId;
+    }, [q, loading, isValidWorkspaceId, isValidConversationId]);
 
     const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
         requestAnimationFrame(() => {
@@ -60,48 +97,57 @@ export default function ConversationPage() {
 
     useEffect(() => {
         if (messages.length === 0) return;
+
         scrollToBottom("smooth");
     }, [messages]);
 
     useEffect(() => {
-        if (isNewConversation || !conversationId) {
+        if (isNewConversation) {
             setMessages([]);
             return;
         }
 
+        if (!conversationId || Number.isNaN(conversationId)) {
+            setMessages([]);
+            return;
+        }
+
+        let cancelled = false;
+
         const fetchMessages = async () => {
             try {
-                const res = await api.get<CommonResponse<MessageResponse[]>>(
-                    `/api/conversations/${conversationId}/messages`
-                );
+                const serverMessages = await getConversationMessages(conversationId);
 
-                const serverMessages = res.data.data ?? [];
+                if (cancelled) return;
 
-                const mapped: ConversationMessage[] = serverMessages.map((m) => ({
-                    id: m.id?.toString?.() ?? crypto.randomUUID(),
-                    role:
-                        m.role?.toLowerCase() === "user"
-                            ? ("user" as const)
-                            : ("assistant" as const),
-                    text: m.content ?? "",
-                    createdAt: m.createdAt
-                        ? new Date(m.createdAt).getTime()
-                        : Date.now(),
-                }));
+                const mapped = serverMessages.map(toConversationMessage);
 
                 setMessages(mapped);
                 requestAnimationFrame(() => scrollToBottom("auto"));
-            } catch (e) {
-                console.error("메시지 조회 실패", e);
+            } catch (error) {
+                console.error("메시지 조회 실패", error);
+
+                if (!cancelled) {
+                    setMessages([]);
+                }
             }
         };
 
-        fetchMessages();
+        void fetchMessages();
+
+        return () => {
+            cancelled = true;
+        };
     }, [conversationId, isNewConversation]);
 
     const ask = async (overrideText?: string) => {
         const text = (overrideText ?? q).trim();
-        if (!text || !workspaceId || loading) return;
+
+        if (!text || !isValidWorkspaceId || loading) return;
+
+        if (!isNewConversation && (!conversationId || Number.isNaN(conversationId))) {
+            return;
+        }
 
         const tempUserId = crypto.randomUUID();
         const tempAssistantId = crypto.randomUUID();
@@ -127,15 +173,9 @@ export default function ConversationPage() {
         setLoading(true);
 
         try {
-            const url = isNewConversation
-                ? `/api/conversations/workspaces/${workspaceId}/first-message`
-                : `/api/conversations/${conversationId}/messages`;
-
-            const res = await api.post<CommonResponse<SendMessageResponse>>(url, {
-                content: text,
-            });
-
-            const result = res.data.data;
+            const result = isNewConversation
+                ? await sendFirstMessage(workspaceId, text)
+                : await sendConversationMessage(conversationId!, text);
 
             const serverMessages = result.messages ?? [];
             const userMsg = serverMessages[0];
@@ -143,41 +183,41 @@ export default function ConversationPage() {
 
             if (!userMsg || !assistantMsg) {
                 setMessages((prev) =>
-                    prev.map((m) =>
-                        m.id === tempAssistantId
-                            ? { ...m, loading: false, text: "응답 오류" }
-                            : m
+                    prev.map((message) =>
+                        message.id === tempAssistantId
+                            ? {
+                                ...message,
+                                loading: false,
+                                text: "응답 형식이 올바르지 않습니다.",
+                            }
+                            : message
                     )
                 );
                 return;
             }
 
             setMessages((prev) =>
-                prev.map((m) => {
-                    if (m.id === tempUserId) {
+                prev.map((message) => {
+                    if (message.id === tempUserId) {
                         return {
                             id: userMsg.id?.toString?.() ?? tempUserId,
                             role: "user" as const,
-                            text: userMsg.content ?? "",
-                            createdAt: userMsg.createdAt
-                                ? new Date(userMsg.createdAt).getTime()
-                                : Date.now(),
+                            text: userMsg.content ?? text,
+                            createdAt: toMessageTime(userMsg.createdAt),
                         };
                     }
 
-                    if (m.id === tempAssistantId) {
+                    if (message.id === tempAssistantId) {
                         return {
                             id: assistantMsg.id?.toString?.() ?? tempAssistantId,
                             role: "assistant" as const,
                             text: assistantMsg.content ?? "응답 없음",
-                            createdAt: assistantMsg.createdAt
-                                ? new Date(assistantMsg.createdAt).getTime()
-                                : Date.now(),
+                            createdAt: toMessageTime(assistantMsg.createdAt),
                             loading: false,
                         };
                     }
 
-                    return m;
+                    return message;
                 })
             );
 
@@ -187,14 +227,20 @@ export default function ConversationPage() {
                     { replace: true }
                 );
             }
-        } catch (e) {
-            console.error("질문 실패", e);
+        } catch (error) {
+            console.error("질문 실패", error);
+
+            const errorMessage = getApiErrorMessage(error);
 
             setMessages((prev) =>
-                prev.map((m) =>
-                    m.id === tempAssistantId
-                        ? { ...m, loading: false, text: "질문 실패" }
-                        : m
+                prev.map((message) =>
+                    message.id === tempAssistantId
+                        ? {
+                            ...message,
+                            loading: false,
+                            text: errorMessage || "질문 처리 중 오류가 발생했습니다.",
+                        }
+                        : message
                 )
             );
         } finally {
@@ -202,10 +248,10 @@ export default function ConversationPage() {
         }
     };
 
-    const onEnterAsk = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    const onEnterAsk = (e: KeyboardEvent<HTMLTextAreaElement>) => {
         if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
-            ask();
+            void ask();
         }
     };
 
@@ -243,6 +289,7 @@ export default function ConversationPage() {
                                         <h2 className="text-xl font-bold text-slate-800">
                                             무엇이든 문서 기준으로 물어보세요
                                         </h2>
+
                                         <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-slate-500">
                                             긴 문서를 직접 읽지 않아도 괜찮아요.
                                             핵심만 요약하거나, 어려운 부분만 골라서 쉽게 설명받을 수 있어요.
@@ -254,7 +301,11 @@ export default function ConversationPage() {
                                             <button
                                                 key={prompt}
                                                 type="button"
-                                                disabled={loading}
+                                                disabled={
+                                                    loading ||
+                                                    !isValidWorkspaceId ||
+                                                    !isValidConversationId
+                                                }
                                                 onClick={() => void ask(prompt)}
                                                 className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-primary-200 hover:text-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
                                             >
@@ -268,20 +319,20 @@ export default function ConversationPage() {
                     ) : (
                         <div className="flex-1 px-2 pb-40 pt-6">
                             <div className="space-y-8">
-                                {messages.map((m) => {
-                                    const isUser = m.role === "user";
+                                {messages.map((message) => {
+                                    const isUser = message.role === "user";
 
                                     if (isUser) {
                                         return (
                                             <motion.div
-                                                key={m.id}
+                                                key={message.id}
                                                 initial={{ opacity: 0, y: 10 }}
                                                 animate={{ opacity: 1, y: 0 }}
                                                 transition={{ duration: 0.18 }}
                                                 className="flex justify-end"
                                             >
                                                 <div className="max-w-2xl whitespace-pre-wrap break-words rounded-[28px] bg-primary-400 px-5 py-4 text-[15px] leading-7 text-white shadow-[0_16px_40px_rgba(109,40,217,0.18)]">
-                                                    {m.text}
+                                                    {message.text}
                                                 </div>
                                             </motion.div>
                                         );
@@ -289,7 +340,7 @@ export default function ConversationPage() {
 
                                     return (
                                         <motion.div
-                                            key={m.id}
+                                            key={message.id}
                                             initial={{ opacity: 0, y: 10 }}
                                             animate={{ opacity: 1, y: 0 }}
                                             transition={{ duration: 0.18 }}
@@ -303,8 +354,9 @@ export default function ConversationPage() {
                                                 <div className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
                                                     Assistant
                                                 </div>
+
                                                 <div className="whitespace-pre-wrap break-words rounded-[30px] border border-slate-200 bg-white px-6 py-5 text-[15px] leading-7 text-slate-800 shadow-[0_12px_40px_rgba(15,23,42,0.05)]">
-                                                    {m.text}
+                                                    {message.text}
                                                 </div>
                                             </div>
                                         </motion.div>
@@ -335,13 +387,14 @@ export default function ConversationPage() {
                                     <span className="rounded-full bg-slate-100 px-2.5 py-1">
                                         문서 근거 기반
                                     </span>
+
                                     <span className="rounded-full bg-slate-100 px-2.5 py-1">
                                         Enter 전송
                                     </span>
                                 </div>
 
                                 <Button
-                                    onClick={() => ask()}
+                                    onClick={() => void ask()}
                                     disabled={!canAsk}
                                     className="inline-flex h-11 w-11 items-center justify-center rounded-full shadow-sm"
                                 >
