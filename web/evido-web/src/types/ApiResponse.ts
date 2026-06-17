@@ -1,5 +1,3 @@
-import { ApiError } from "../api/ApiError";
-
 export type CommonResponse<T> = {
     success: boolean;
     code: string | null;
@@ -16,24 +14,4 @@ export const isCommonResponse = <T>(
         "success" in body &&
         "data" in body
     );
-};
-
-export const unwrapResponse = <T>(body: CommonResponse<T>): T => {
-    if (!body.success) {
-        throw new ApiError(
-            200,
-            body.code ?? "UNKNOWN_ERROR",
-            body.message ?? "요청 처리 중 오류가 발생했습니다."
-        );
-    }
-
-    if (body.data === null) {
-        throw new ApiError(
-            200,
-            "EMPTY_RESPONSE",
-            "응답 데이터가 없습니다."
-        );
-    }
-
-    return body.data;
 };

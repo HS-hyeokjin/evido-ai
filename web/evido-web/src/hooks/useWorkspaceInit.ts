@@ -1,15 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import api from "../api/client";
-import type { CommonResponse } from "../types/ApiResponse";
-import type { WorkspaceInit } from "../types/WorkspaceInit";
+import { initWorkspace } from "../api/workspaces";
 
 interface UseWorkspaceInitOptions {
     enabled: boolean;
-    user: any;
+    user: unknown;
 }
 
-export default function useWorkspaceInit({ enabled, user }: UseWorkspaceInitOptions) {
+export default function useWorkspaceInit({
+                                             enabled,
+                                             user,
+                                         }: UseWorkspaceInitOptions) {
     const navigate = useNavigate();
     const { workspaceId } = useParams();
 
@@ -39,15 +40,12 @@ export default function useWorkspaceInit({ enabled, user }: UseWorkspaceInitOpti
 
         let cancelled = false;
 
-        const initWorkspace = async () => {
+        const initWorkspaceAndMove = async () => {
             try {
                 setLoading(true);
 
-                const res = await api.get<CommonResponse<WorkspaceInit>>(
-                    "/api/workspaces/init"
-                );
-
-                const nextWorkspaceId = res.data.data.workspaceId;
+                const workspace = await initWorkspace();
+                const nextWorkspaceId = workspace.workspaceId;
 
                 if (cancelled) return;
 
@@ -63,7 +61,7 @@ export default function useWorkspaceInit({ enabled, user }: UseWorkspaceInitOpti
             }
         };
 
-        void initWorkspace();
+        void initWorkspaceAndMove();
 
         return () => {
             cancelled = true;
