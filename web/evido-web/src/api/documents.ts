@@ -1,6 +1,7 @@
 import type { AxiosProgressEvent } from "axios";
 import api from "./client";
 import type { CommonResponse } from "../types/ApiResponse";
+import { unwrapResponse } from "../types/ApiResponse";
 
 export type PageResponse<T> = {
     content: T[];
@@ -70,7 +71,7 @@ export async function listDocuments(
         }
     );
 
-    return data.data;
+    return unwrapResponse(data);
 }
 
 export async function deleteDocument(
@@ -112,7 +113,7 @@ export async function uploadDocumentsBulk(
         }
     );
 
-    return data.data;
+    return unwrapResponse(data);
 }
 
 export async function getDocumentTextContent(
@@ -164,5 +165,5 @@ export async function getDocumentDownloadUrl(
         }
     );
 
-    return data.data;
+    return unwrapResponse(data);
 }

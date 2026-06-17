@@ -18,18 +18,22 @@ export const isCommonResponse = <T>(
     );
 };
 
-export const unwrapResponse = <T>(body: CommonResponse<T> | T): T => {
-    if (isCommonResponse<T>(body)) {
-        if (!body.success) {
-            throw new ApiError(
-                200,
-                body.code ?? "UNKNOWN_ERROR",
-                body.message ?? "요청 처리 중 오류가 발생했습니다."
-            );
-        }
-
-        return body.data as T;
+export const unwrapResponse = <T>(body: CommonResponse<T>): T => {
+    if (!body.success) {
+        throw new ApiError(
+            200,
+            body.code ?? "UNKNOWN_ERROR",
+            body.message ?? "요청 처리 중 오류가 발생했습니다."
+        );
     }
 
-    return body as T;
+    if (body.data === null) {
+        throw new ApiError(
+            200,
+            "EMPTY_RESPONSE",
+            "응답 데이터가 없습니다."
+        );
+    }
+
+    return body.data;
 };
