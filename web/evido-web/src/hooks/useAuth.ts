@@ -1,51 +1,14 @@
-import { useEffect, useState } from "react";
-import api from "../api/client";
+import { useContext } from "react";
+import { AuthContext } from "../contexts/AuthContext";
 
-export interface AuthUser {
-    authenticated: boolean;
-    principal?: string;
-    role?: string;
-}
+export type { AuthUser } from "../contexts/AuthContext";
 
 export default function useAuth() {
-    const [user, setUser] = useState<AuthUser | null>(null);
-    const [loading, setLoading] = useState(true);
+    const context = useContext(AuthContext);
 
-    useEffect(() => {
+    if (!context) {
+        throw new Error("useAuth는 AuthProvider 내부에서만 사용할 수 있습니다.");
+    }
 
-        let mounted = true;
-
-        async function checkAuth() {
-            try {
-                const res = await api.get<AuthUser>("/api/auth/session");
-                if (!res.data.authenticated) {
-                    await api.post("/api/auth/guest/token");
-                    const guestRes = await api.get<AuthUser>("/api/auth/session");
-                    if (mounted) {
-                        setUser(guestRes.data);
-                    }
-                } else {
-                    if (mounted) {
-                        setUser(res.data);
-                    }
-                }
-            } catch (err) {
-                console.error("인증 에러", err);
-                if (mounted) {
-                    setUser({ authenticated: false });
-                }
-            } finally {
-                if (mounted) {
-                    setLoading(false);
-                }
-            }
-        }
-        checkAuth();
-        return () => {
-            mounted = false;
-        };
-
-    }, []);
-
-    return { user, loading };
+    return context;
 }
