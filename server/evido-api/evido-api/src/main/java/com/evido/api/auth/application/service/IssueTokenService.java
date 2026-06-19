@@ -51,7 +51,8 @@ public class IssueTokenService implements IssueTokenUseCase {
         );
 
         String refresh = tokenProvider.createRefreshToken(
-                user.getId()
+                user.getId(),
+                user.getRole()
         );
 
         refreshRepo.save(user.getId(), refresh, 604800);

@@ -1,4 +1,5 @@
 package com.evido.api.auth.application.port.out;
+
 import com.evido.api.auth.domain.Role;
 import com.evido.api.auth.domain.TokenPayload;
 
@@ -8,7 +9,7 @@ public interface TokenProviderPort {
 
     String createAccessToken(String userId, Role role);
 
-    String createRefreshToken(String userId);
+    String createRefreshToken(String userId, Role role);
 
     boolean validate(String token);
 

@@ -1,15 +1,21 @@
 package com.evido.api.auth.infrastructure.security;
 
+import com.evido.api.auth.application.port.out.TokenProviderPort;
 import com.evido.api.auth.domain.Role;
 import com.evido.api.auth.domain.TokenPayload;
-import com.evido.api.auth.application.port.out.TokenProviderPort;
-import io.jsonwebtoken.*;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 
 import java.security.Key;
 import java.util.Date;
 
 public class JwtTokenProvider implements TokenProviderPort {
+
+    private static final String TOKEN_TYPE_ACCESS = "ACCESS";
+    private static final String TOKEN_TYPE_REFRESH = "REFRESH";
+    private static final String TOKEN_TYPE_GUEST = "GUEST";
 
     private final Key key;
     private final long guestExpire = 1000L * 60 * 60 * 24;
@@ -22,17 +28,17 @@ public class JwtTokenProvider implements TokenProviderPort {
 
     @Override
     public String createGuestToken(String guestUuid) {
-        return buildToken(guestUuid, "GUEST", Role.ROLE_GUEST, guestExpire);
+        return buildToken(guestUuid, TOKEN_TYPE_GUEST, Role.ROLE_GUEST, guestExpire);
     }
 
     @Override
     public String createAccessToken(String userId, Role role) {
-        return buildToken(String.valueOf(userId), "USER", role, accessExpire);
+        return buildToken(userId, TOKEN_TYPE_ACCESS, role, accessExpire);
     }
 
     @Override
-    public String createRefreshToken(String userId) {
-        return buildToken(String.valueOf(userId), "USER", Role.ROLE_USER, refreshExpire);
+    public String createRefreshToken(String userId, Role role) {
+        return buildToken(userId, TOKEN_TYPE_REFRESH, role, refreshExpire);
     }
 
     private String buildToken(String subject, String type, Role role, long expire) {

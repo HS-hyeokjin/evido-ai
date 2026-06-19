@@ -18,6 +18,9 @@ import java.util.List;
 
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
+    private static final String ACCESS_TOKEN_COOKIE_NAME = "ACCESS_TOKEN";
+    private static final String TOKEN_TYPE_ACCESS = "ACCESS";
+
     private final TokenProviderPort tokenProvider;
 
     public JwtAuthenticationFilter(TokenProviderPort tokenProvider) {
@@ -37,14 +40,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             TokenPayload payload = tokenProvider.parse(token);
 
-            UsernamePasswordAuthenticationToken authentication =
-                    new UsernamePasswordAuthenticationToken(
-                            payload.subject(),
-                            null,
-                            List.of(new SimpleGrantedAuthority(payload.role().name()))
-                    );
+            if (TOKEN_TYPE_ACCESS.equals(payload.type())) {
+                UsernamePasswordAuthenticationToken authentication =
+                        new UsernamePasswordAuthenticationToken(
+                                payload.subject(),
+                                null,
+                                List.of(new SimpleGrantedAuthority(payload.role().name()))
+                        );
 
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+            }
         }
 
         filterChain.doFilter(request, response);
@@ -54,7 +59,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (request.getCookies() == null) return null;
 
         for (Cookie cookie : request.getCookies()) {
-            if ("ACCESS_TOKEN".equals(cookie.getName())) {
+            if (ACCESS_TOKEN_COOKIE_NAME.equals(cookie.getName())) {
                 return cookie.getValue();
             }
         }
