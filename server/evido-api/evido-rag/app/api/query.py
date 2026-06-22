@@ -21,6 +21,7 @@ def query(req: QueryRequest):
     index = get_index()
 
     results = index.search(
+        workspace_id=req.workspaceId,
         query_text=req.queryText,
         document_id=req.documentId,
         version_id=req.versionId,

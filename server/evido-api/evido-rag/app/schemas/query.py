@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 
 class QueryRequest(BaseModel):
+    workspaceId: int = Field(...,ge=1)
     queryText: str
     documentId: Optional[int] = None
     versionId: Optional[int] = None
