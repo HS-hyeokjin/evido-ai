@@ -1,6 +1,8 @@
 import os
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Iterator, cast
+
 from groq import Groq
+from groq.types.chat import ChatCompletionMessageParam
 
 
 class GroqLLM:
@@ -12,7 +14,7 @@ class GroqLLM:
         self.client = Groq(api_key=self.api_key)
 
         self.model = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
-        self.timeout = float(os.getenv("GROQ_TIMEOUT", "60"))
+        self.timeout: float = float(os.getenv("GROQ_TIMEOUT", "60"))
 
         self.max_evidence_chunks = int(os.getenv("EVIDENCE_TOPK", "8"))
         self.max_chars_per_chunk = int(os.getenv("EVIDENCE_MAX_CHARS", "1100"))
@@ -27,7 +29,91 @@ class GroqLLM:
             recent_messages: list | None = None,
             rewritten_query: str | None = None,
     ) -> str:
+        system, user = self._build_messages(
+            query=query,
+            contexts=contexts,
+            prompt_type=prompt_type,
+            conversation_summary=conversation_summary,
+            recent_messages=recent_messages,
+            rewritten_query=rewritten_query,
+        )
 
+        messages: List[ChatCompletionMessageParam] = [
+            cast(ChatCompletionMessageParam, {"role": "system", "content": system}),
+            cast(ChatCompletionMessageParam, {"role": "user", "content": user}),
+        ]
+
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=messages,
+            temperature=self._temperature_by_prompt_type(prompt_type),
+            max_tokens=self.num_predict,
+            top_p=0.9,
+            timeout=self.timeout,
+        )
+
+        answer = response.choices[0].message.content
+
+        return answer.strip() if answer else "답변 생성 실패"
+
+    def stream_answer(
+            self,
+            query: str,
+            contexts: List[Dict[str, Any]],
+            prompt_type: str = "qa",
+            conversation_summary: str | None = None,
+            recent_messages: list | None = None,
+            rewritten_query: str | None = None,
+    ) -> Iterator[str]:
+        system, user = self._build_messages(
+            query=query,
+            contexts=contexts,
+            prompt_type=prompt_type,
+            conversation_summary=conversation_summary,
+            recent_messages=recent_messages,
+            rewritten_query=rewritten_query,
+        )
+
+        messages: List[ChatCompletionMessageParam] = [
+            cast(ChatCompletionMessageParam, {"role": "system", "content": system}),
+            cast(ChatCompletionMessageParam, {"role": "user", "content": user}),
+        ]
+
+        stream = self.client.chat.completions.create(
+            model=self.model,
+            messages=messages,
+            temperature=self._temperature_by_prompt_type(prompt_type),
+            max_tokens=self.num_predict,
+            top_p=0.9,
+            timeout=self.timeout,
+            stream=True,
+        )
+
+        has_token = False
+
+        for chunk in stream:
+            if not chunk.choices:
+                continue
+
+            delta = chunk.choices[0].delta
+            content = getattr(delta, "content", None)
+
+            if content:
+                has_token = True
+                yield content
+
+        if not has_token:
+            yield "답변 생성 실패"
+
+    def _build_messages(
+            self,
+            query: str,
+            contexts: List[Dict[str, Any]],
+            prompt_type: str = "qa",
+            conversation_summary: str | None = None,
+            recent_messages: list | None = None,
+            rewritten_query: str | None = None,
+    ) -> tuple[str, str]:
         top = (contexts or [])[: self.max_evidence_chunks]
 
         evidence_texts = []
@@ -77,21 +163,7 @@ class GroqLLM:
             f"[답변]"
         )
 
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
-            ],
-            temperature=self._temperature_by_prompt_type(prompt_type),
-            max_tokens=self.num_predict,
-            top_p=0.9,
-            timeout=self.timeout,
-        )
-
-        answer = response.choices[0].message.content
-
-        return answer.strip() if answer else "답변 생성 실패"
+        return system, user
 
     def _build_system_prompt(self, prompt_type: str) -> str:
         base = (
