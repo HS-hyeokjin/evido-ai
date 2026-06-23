@@ -21,7 +21,10 @@ import type {
     ConversationMessage,
     MessageResponse,
 } from "../../types/Conversation";
-import type { ChatStreamEvent } from "../../types/ChatStream";
+import type {
+    ChatStreamEvent,
+    ChatStreamEvidence,
+} from "../../types/ChatStream";
 
 const STARTER_PROMPTS = [
     "문서의 내용을 요약해줘",
@@ -69,6 +72,9 @@ export default function ConversationPage() {
     const [q, setQ] = useState("");
     const [loading, setLoading] = useState(false);
     const [messages, setMessages] = useState<ConversationMessage[]>([]);
+    const [messageEvidences, setMessageEvidences] = useState<
+        Record<string, ChatStreamEvidence[]>
+    >({});
 
     const endRef = useRef<HTMLDivElement | null>(null);
     const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -106,11 +112,13 @@ export default function ConversationPage() {
     useEffect(() => {
         if (isNewConversation) {
             setMessages([]);
+            setMessageEvidences({});
             return;
         }
 
         if (!conversationId || Number.isNaN(conversationId)) {
             setMessages([]);
+            setMessageEvidences({});
             return;
         }
 
@@ -125,12 +133,14 @@ export default function ConversationPage() {
                 const mapped = serverMessages.map(toConversationMessage);
 
                 setMessages(mapped);
+                setMessageEvidences({});
                 requestAnimationFrame(() => scrollToBottom("auto"));
             } catch (error) {
                 console.error("메시지 조회 실패", error);
 
                 if (!cancelled) {
                     setMessages([]);
+                    setMessageEvidences({});
                 }
             }
         };
@@ -460,8 +470,11 @@ export default function ConversationPage() {
         }
 
         if (event.type === "evidence") {
-            // 지금 단계에서는 근거를 화면에 표시하지 않는다.
-            // 나중에 답변 하단 근거 표시 기능을 붙일 때 event.evidences를 사용하면 된다.
+            setMessageEvidences((prev) => ({
+                ...prev,
+                [tempAssistantId]: event.evidences ?? [],
+            }));
+
             return;
         }
 
@@ -489,12 +502,13 @@ export default function ConversationPage() {
             markCompleted();
 
             const finalText = getAssistantText();
+            const realAssistantId = String(event.messageId);
 
             setMessages((prev) =>
                 prev.map((message) =>
                     message.id === tempAssistantId
                         ? {
-                            id: String(event.messageId),
+                            id: realAssistantId,
                             role: "assistant" as const,
                             text: finalText || "응답 없음",
                             createdAt: toMessageTime(event.createdAt),
@@ -503,6 +517,21 @@ export default function ConversationPage() {
                         : message
                 )
             );
+
+            setMessageEvidences((prev) => {
+                const evidences = prev[tempAssistantId];
+
+                if (!evidences) {
+                    return prev;
+                }
+
+                const next = { ...prev };
+
+                delete next[tempAssistantId];
+                next[realAssistantId] = evidences;
+
+                return next;
+            });
 
             return;
         }
@@ -528,6 +557,87 @@ export default function ConversationPage() {
             void ask();
         }
     };
+
+    function EvidenceList({ evidences }: { evidences: ChatStreamEvidence[] }) {
+        if (!evidences.length) {
+            return null;
+        }
+
+        return (
+            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3">
+                <div className="mb-3 flex items-center justify-between gap-2">
+                    <div className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
+                        근거
+                    </div>
+
+                    <div className="text-xs text-slate-400">
+                        {evidences.length}개
+                    </div>
+                </div>
+
+                <div className="space-y-2">
+                    {evidences.map((evidence, index) => {
+                        const scoreText = formatEvidenceScore(evidence.score);
+
+                        return (
+                            <div
+                                key={`${evidence.chunkId ?? "chunk"}-${index}`}
+                                className="rounded-xl border border-slate-200 bg-white px-3 py-3"
+                            >
+                                <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                                <span className="font-bold text-slate-700">
+                                    근거 {index + 1}
+                                </span>
+
+                                    {evidence.chunkId != null ? (
+                                        <span>chunk #{evidence.chunkId}</span>
+                                    ) : null}
+
+                                    {evidence.chunkIndex != null ? (
+                                        <span>index {evidence.chunkIndex}</span>
+                                    ) : null}
+
+                                    {scoreText ? (
+                                        <span className="rounded-full bg-slate-100 px-2 py-0.5 font-semibold text-slate-600">
+                                        유사도 {scoreText}
+                                    </span>
+                                    ) : null}
+                                </div>
+
+                                <p className="line-clamp-3 whitespace-pre-wrap text-sm leading-6 text-slate-600">
+                                    {evidence.contentHead || "근거 내용을 표시할 수 없습니다."}
+                                </p>
+
+                                {(evidence.documentId != null || evidence.versionId != null) ? (
+                                    <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-400">
+                                        {evidence.documentId != null ? (
+                                            <span>documentId: {evidence.documentId}</span>
+                                        ) : null}
+
+                                        {evidence.versionId != null ? (
+                                            <span>versionId: {evidence.versionId}</span>
+                                        ) : null}
+                                    </div>
+                                ) : null}
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        );
+    }
+
+    function formatEvidenceScore(score?: number | null) {
+        if (typeof score !== "number" || Number.isNaN(score)) {
+            return null;
+        }
+
+        if (score >= 0 && score <= 1) {
+            return `${Math.round(score * 100)}%`;
+        }
+
+        return score.toFixed(3);
+    }
 
     return (
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
@@ -629,11 +739,15 @@ export default function ConversationPage() {
                                                     Assistant
                                                 </div>
 
-                                                <div className="whitespace-pre-wrap break-words rounded-[30px] border border-slate-200 bg-white px-6 py-5 text-[15px] leading-7 text-slate-800 shadow-[0_12px_40px_rgba(15,23,42,0.05)]">
-                                                    {message.text}
-                                                    {"loading" in message && message.loading ? (
-                                                        <span className="ml-1 inline-block h-4 w-2 animate-pulse rounded-sm bg-primary-400 align-middle" />
-                                                    ) : null}
+                                                <div className="rounded-[30px] border border-slate-200 bg-white px-6 py-5 text-[15px] leading-7 text-slate-800 shadow-[0_12px_40px_rgba(15,23,42,0.05)]">
+                                                    <div className="whitespace-pre-wrap break-words">
+                                                        {message.text}
+                                                        {"loading" in message && message.loading ? (
+                                                            <span className="ml-1 inline-block h-4 w-2 animate-pulse rounded-sm bg-primary-400 align-middle" />
+                                                        ) : null}
+                                                    </div>
+
+                                                    <EvidenceList evidences={messageEvidences[message.id] ?? []} />
                                                 </div>
                                             </div>
                                         </motion.div>
