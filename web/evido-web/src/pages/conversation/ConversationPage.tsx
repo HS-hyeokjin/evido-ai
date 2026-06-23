@@ -247,6 +247,7 @@ export default function ConversationPage() {
             }
         } catch (error) {
             if (abortController.signal.aborted) {
+                finishAbortedAssistantMessage(tempAssistantId, assistantText);
                 return;
             }
 
@@ -343,6 +344,7 @@ export default function ConversationPage() {
             }
         } catch (error) {
             if (abortController.signal.aborted) {
+                finishAbortedAssistantMessage(tempAssistantId, assistantText);
                 return;
             }
 
@@ -369,6 +371,37 @@ export default function ConversationPage() {
             setLoading(false);
         }
     };
+
+    const cancelStreaming = () => {
+        if (!streamAbortRef.current) return;
+
+        streamAbortRef.current.abort();
+        streamAbortRef.current = null;
+    };
+
+    const finishAbortedAssistantMessage = (
+        tempAssistantId: string,
+        assistantText: string
+    ) => {
+        setMessages((prev) =>
+            prev.map((message) => {
+                if (message.id !== tempAssistantId) {
+                    return message;
+                }
+
+                const text = assistantText.trim();
+
+                return {
+                    ...message,
+                    loading: false,
+                    text: text
+                        ? `${text}\n\n[응답 생성이 중단되었습니다.]`
+                        : "응답 생성이 중단되었습니다.",
+                };
+            })
+        );
+    };
+
 
     const handleStreamEvent = ({
                                    event,
@@ -637,13 +670,23 @@ export default function ConversationPage() {
                                     </span>
                                 </div>
 
-                                <Button
-                                    onClick={() => void ask()}
-                                    disabled={!canAsk}
-                                    className="inline-flex h-11 w-11 items-center justify-center rounded-full shadow-sm"
-                                >
-                                    <Send size={16} />
-                                </Button>
+                                {loading ? (
+                                    <button
+                                        type="button"
+                                        onClick={cancelStreaming}
+                                        className="inline-flex h-11 items-center justify-center rounded-full bg-slate-900 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-slate-800"
+                                    >
+                                        중단
+                                    </button>
+                                ) : (
+                                    <Button
+                                        onClick={() => void ask()}
+                                        disabled={!canAsk}
+                                        className="inline-flex h-11 w-11 items-center justify-center rounded-full shadow-sm"
+                                    >
+                                        <Send size={16} />
+                                    </Button>
+                                )}
                             </div>
                         </div>
                     </div>
