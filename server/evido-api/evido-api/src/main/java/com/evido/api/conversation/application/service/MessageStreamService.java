@@ -31,6 +31,7 @@ public class MessageStreamService {
 
     private static final int RECENT_MESSAGE_LIMIT = 6;
     private static final int DEFAULT_TOP_K = 5;
+    private static final String INTERRUPTED_SUFFIX = "\n\n[응답 생성이 중단되었습니다.]";
 
     private final MessageRepositoryPort messageRepositoryPort;
     private final ConversationRepositoryPort conversationRepositoryPort;
@@ -63,6 +64,10 @@ public class MessageStreamService {
     ) {
         StringBuilder answerBuffer = new StringBuilder();
         AtomicBoolean failed = new AtomicBoolean(false);
+        AtomicBoolean connectionClosed = new AtomicBoolean(false);
+        boolean assistantSaved = false;
+
+        registerEmitterCallbacks(emitter, connectionClosed);
 
         try {
             Conversation conversation = getConversation(command.conversationId());
@@ -96,12 +101,18 @@ public class MessageStreamService {
             );
 
             ragPort.answerStream(askCommand, context)
-                    .doOnNext(event -> handleRagEvent(
-                            event,
-                            emitter,
-                            answerBuffer,
-                            failed
-                    ))
+                    .doOnNext(event -> {
+                        if (connectionClosed.get()) {
+                            throw new ClientDisconnectedException();
+                        }
+
+                        handleRagEvent(
+                                event,
+                                emitter,
+                                answerBuffer,
+                                failed
+                        );
+                    })
                     .blockLast();
 
             if (failed.get() && answerBuffer.isEmpty()) {
@@ -126,6 +137,8 @@ public class MessageStreamService {
                     answerBuffer.toString()
             );
 
+            assistantSaved = true;
+
             updateSummaryIfNeeded(conversation.getId());
 
             send(
@@ -140,6 +153,20 @@ public class MessageStreamService {
             emitter.complete();
 
         } catch (Exception e) {
+            if (!assistantSaved && isClientDisconnectedOrClosed(e, connectionClosed)) {
+                Message partialMessage = savePartialAssistantMessageIfPossible(
+                        command.conversationId(),
+                        answerBuffer
+                );
+
+                if (partialMessage != null) {
+                    updateSummaryIfNeeded(command.conversationId());
+                }
+
+                emitter.complete();
+                return;
+            }
+
             sendErrorSafely(
                     emitter,
                     "MESSAGE_STREAM_ERROR",
@@ -156,6 +183,11 @@ public class MessageStreamService {
     ) {
         StringBuilder answerBuffer = new StringBuilder();
         AtomicBoolean failed = new AtomicBoolean(false);
+        AtomicBoolean connectionClosed = new AtomicBoolean(false);
+        boolean assistantSaved = false;
+        Long conversationIdForPartialSave = null;
+
+        registerEmitterCallbacks(emitter, connectionClosed);
 
         try {
             validateAccess(command.workspaceId(), command.userId());
@@ -165,6 +197,8 @@ public class MessageStreamService {
             Conversation conversation = conversationRepositoryPort.save(
                     Conversation.create(command.workspaceId(), title)
             );
+
+            conversationIdForPartialSave = conversation.getId();
 
             Message userMessage = saveUserMessage(
                     conversation.getId(),
@@ -189,12 +223,18 @@ public class MessageStreamService {
             );
 
             ragPort.answerStream(askCommand, ConversationContext.empty())
-                    .doOnNext(event -> handleRagEvent(
-                            event,
-                            emitter,
-                            answerBuffer,
-                            failed
-                    ))
+                    .doOnNext(event -> {
+                        if (connectionClosed.get()) {
+                            throw new ClientDisconnectedException();
+                        }
+
+                        handleRagEvent(
+                                event,
+                                emitter,
+                                answerBuffer,
+                                failed
+                        );
+                    })
                     .blockLast();
 
             if (failed.get() && answerBuffer.isEmpty()) {
@@ -219,6 +259,8 @@ public class MessageStreamService {
                     answerBuffer.toString()
             );
 
+            assistantSaved = true;
+
             updateSummaryIfNeeded(conversation.getId());
 
             send(
@@ -233,6 +275,20 @@ public class MessageStreamService {
             emitter.complete();
 
         } catch (Exception e) {
+            if (!assistantSaved && isClientDisconnectedOrClosed(e, connectionClosed)) {
+                Message partialMessage = savePartialAssistantMessageIfPossible(
+                        conversationIdForPartialSave,
+                        answerBuffer
+                );
+
+                if (partialMessage != null && conversationIdForPartialSave != null) {
+                    updateSummaryIfNeeded(conversationIdForPartialSave);
+                }
+
+                emitter.complete();
+                return;
+            }
+
             sendErrorSafely(
                     emitter,
                     "FIRST_MESSAGE_STREAM_ERROR",
@@ -423,6 +479,82 @@ public class MessageStreamService {
                             .data(MessageStreamEvent.error(code, message))
             );
         } catch (Exception ignored) {
+        }
+    }
+
+    private void registerEmitterCallbacks(
+            SseEmitter emitter,
+            AtomicBoolean connectionClosed
+    ) {
+        emitter.onCompletion(() -> connectionClosed.set(true));
+        emitter.onTimeout(() -> connectionClosed.set(true));
+        emitter.onError(error -> connectionClosed.set(true));
+    }
+
+    private Message savePartialAssistantMessageIfPossible(
+            Long conversationId,
+            StringBuilder answerBuffer
+    ) {
+        if (conversationId == null) {
+            return null;
+        }
+
+        String content = answerBuffer.toString().trim();
+
+        if (content.isBlank()) {
+            return null;
+        }
+
+        String interruptedContent = content.endsWith("[응답 생성이 중단되었습니다.]")
+                ? content
+                : content + INTERRUPTED_SUFFIX;
+
+        return saveAssistantMessage(conversationId, interruptedContent);
+    }
+
+    private boolean isClientDisconnectedOrClosed(
+            Exception e,
+            AtomicBoolean connectionClosed
+    ) {
+        if (connectionClosed.get()) {
+            return true;
+        }
+
+        return isClientDisconnected(e);
+    }
+
+    private boolean isClientDisconnected(Throwable throwable) {
+        Throwable current = throwable;
+
+        while (current != null) {
+            if (current instanceof ClientDisconnectedException) {
+                return true;
+            }
+
+            String message = current.getMessage();
+
+            if (message != null) {
+                String lower = message.toLowerCase();
+
+                if (
+                        lower.contains("broken pipe") ||
+                                lower.contains("connection reset") ||
+                                lower.contains("clientabortexception") ||
+                                lower.contains("sse client disconnected")
+                ) {
+                    return true;
+                }
+            }
+
+            current = current.getCause();
+        }
+
+        return false;
+    }
+
+    private static class ClientDisconnectedException extends RuntimeException {
+        public ClientDisconnectedException() {
+            super("SSE client disconnected");
         }
     }
 }
