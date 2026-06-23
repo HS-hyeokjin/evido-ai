@@ -11,12 +11,16 @@ import com.evido.api.conversation.application.port.in.MessageUseCase;
 import com.evido.api.conversation.application.port.in.command.SendFirstMessageCommand;
 import com.evido.api.conversation.application.port.in.command.SendMessageCommand;
 import com.evido.api.conversation.application.port.in.query.GetMessagesQuery;
+import com.evido.api.conversation.application.service.MessageStreamService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
@@ -28,6 +32,7 @@ import java.util.List;
 public class MessageController {
 
     private final MessageUseCase messageUseCase;
+    private final MessageStreamService messageStreamService;
     private final CurrentUserProvider currentUserProvider;
 
     @Operation(summary = "메시지 목록 조회")
@@ -53,7 +58,7 @@ public class MessageController {
     @PostMapping("/{conversationId}/messages")
     public Mono<CommonResponse<SendMessageResponse>> sendMessage(
             @PathVariable Long conversationId,
-            @RequestBody MessageRequest request,
+            @Valid @RequestBody MessageRequest request,
             @Parameter(hidden = true)
             Authentication authentication
     ) {
@@ -73,11 +78,33 @@ public class MessageController {
                 ));
     }
 
+    @Operation(summary = "메시지 스트리밍 전송")
+    @PostMapping(
+            value = "/{conversationId}/messages/stream",
+            produces = MediaType.TEXT_EVENT_STREAM_VALUE
+    )
+    public SseEmitter sendMessageStream(
+            @PathVariable Long conversationId,
+            @Valid @RequestBody MessageRequest request,
+            @Parameter(hidden = true)
+            Authentication authentication
+    ) {
+        String userId = currentUserProvider.getUserId(authentication);
+
+        var command = new SendMessageCommand(
+                conversationId,
+                userId,
+                request.content()
+        );
+
+        return messageStreamService.streamMessage(command);
+    }
+
     @Operation(summary = "첫 메시지 전송")
     @PostMapping("/workspaces/{workspaceId}/first-message")
     public Mono<CommonResponse<SendMessageResponse>> sendFirstMessage(
             @PathVariable Long workspaceId,
-            @RequestBody MessageRequest request,
+            @Valid @RequestBody MessageRequest request,
             @Parameter(hidden = true)
             Authentication authentication
     ) {
@@ -95,5 +122,27 @@ public class MessageController {
                         "첫 메시지 전송이 완료되었습니다.",
                         response
                 ));
+    }
+
+    @Operation(summary = "첫 메시지 스트리밍 전송")
+    @PostMapping(
+            value = "/workspaces/{workspaceId}/first-message/stream",
+            produces = MediaType.TEXT_EVENT_STREAM_VALUE
+    )
+    public SseEmitter sendFirstMessageStream(
+            @PathVariable Long workspaceId,
+            @Valid @RequestBody MessageRequest request,
+            @Parameter(hidden = true)
+            Authentication authentication
+    ) {
+        String userId = currentUserProvider.getUserId(authentication);
+
+        var command = new SendFirstMessageCommand(
+                workspaceId,
+                userId,
+                request.content()
+        );
+
+        return messageStreamService.streamFirstMessage(command);
     }
 }

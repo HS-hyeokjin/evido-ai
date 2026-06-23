@@ -14,4 +14,12 @@ export const isCommonResponse = <T>(
         "success" in body &&
         "data" in body
     );
-};
+}
+
+export function unwrapResponse<T>(response: CommonResponse<T>): T | null {
+    if (!response.success) {
+        throw new Error(response.message || "요청 처리 중 오류가 발생했습니다.");
+    }
+
+    return response.data;
+}

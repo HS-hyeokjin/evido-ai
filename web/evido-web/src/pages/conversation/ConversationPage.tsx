@@ -13,14 +13,18 @@ import Button from "../../components/common/Button";
 import FileViewerPanel from "./FileViewerPanel";
 import {
     getConversationMessages,
-    sendConversationMessage,
-    sendFirstMessage,
+    sendConversationMessageStream,
+    sendFirstMessageStream,
 } from "../../api/conversations";
 import { getApiErrorMessage } from "../../utils/getApiErrorMessage";
 import type {
     ConversationMessage,
     MessageResponse,
 } from "../../types/Conversation";
+import type {
+    ChatStreamEvent,
+    ChatStreamEvidence,
+} from "../../types/ChatStream";
 
 const STARTER_PROMPTS = [
     "문서의 내용을 요약해줘",
@@ -68,9 +72,13 @@ export default function ConversationPage() {
     const [q, setQ] = useState("");
     const [loading, setLoading] = useState(false);
     const [messages, setMessages] = useState<ConversationMessage[]>([]);
+    const [messageEvidences, setMessageEvidences] = useState<
+        Record<string, ChatStreamEvidence[]>
+    >({});
 
     const endRef = useRef<HTMLDivElement | null>(null);
     const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+    const streamAbortRef = useRef<AbortController | null>(null);
 
     const canAsk = useMemo(() => {
         return !!q.trim() && !loading && isValidWorkspaceId && isValidConversationId;
@@ -104,11 +112,13 @@ export default function ConversationPage() {
     useEffect(() => {
         if (isNewConversation) {
             setMessages([]);
+            setMessageEvidences({});
             return;
         }
 
         if (!conversationId || Number.isNaN(conversationId)) {
             setMessages([]);
+            setMessageEvidences({});
             return;
         }
 
@@ -123,12 +133,14 @@ export default function ConversationPage() {
                 const mapped = serverMessages.map(toConversationMessage);
 
                 setMessages(mapped);
+                setMessageEvidences({});
                 requestAnimationFrame(() => scrollToBottom("auto"));
             } catch (error) {
                 console.error("메시지 조회 실패", error);
 
                 if (!cancelled) {
                     setMessages([]);
+                    setMessageEvidences({});
                 }
             }
         };
@@ -140,6 +152,12 @@ export default function ConversationPage() {
         };
     }, [conversationId, isNewConversation]);
 
+    useEffect(() => {
+        return () => {
+            streamAbortRef.current?.abort();
+        };
+    }, []);
+
     const ask = async (overrideText?: string) => {
         const text = (overrideText ?? q).trim();
 
@@ -149,8 +167,25 @@ export default function ConversationPage() {
             return;
         }
 
+        if (isNewConversation) {
+            await askFirstMessageStreaming(text);
+            return;
+        }
+
+        await askStreamingMessage(conversationId!, text);
+    };
+
+    const askFirstMessageStreaming = async (text: string) => {
         const tempUserId = crypto.randomUUID();
         const tempAssistantId = crypto.randomUUID();
+        const abortController = new AbortController();
+
+        streamAbortRef.current?.abort();
+        streamAbortRef.current = abortController;
+
+        let assistantText = "";
+        let completed = false;
+        let createdConversationId: number | null = null;
 
         setMessages((prev) => [
             ...prev,
@@ -163,7 +198,7 @@ export default function ConversationPage() {
             {
                 id: tempAssistantId,
                 role: "assistant",
-                text: "생성 중...",
+                text: "질문을 분석하고 있습니다...",
                 createdAt: Date.now(),
                 loading: true,
             },
@@ -173,62 +208,60 @@ export default function ConversationPage() {
         setLoading(true);
 
         try {
-            const result = isNewConversation
-                ? await sendFirstMessage(workspaceId, text)
-                : await sendConversationMessage(conversationId!, text);
+            await sendFirstMessageStream(workspaceId, text, {
+                signal: abortController.signal,
+                onEvent: (event) => {
+                    handleStreamEvent({
+                        event,
+                        tempUserId,
+                        tempAssistantId,
+                        fallbackUserText: text,
+                        getAssistantText: () => assistantText,
+                        setAssistantText: (value) => {
+                            assistantText = value;
+                        },
+                        markCompleted: () => {
+                            completed = true;
+                        },
+                    });
 
-            const serverMessages = result.messages ?? [];
-            const userMsg = serverMessages[0];
-            const assistantMsg = serverMessages[1];
+                    if (event.type === "user_message") {
+                        createdConversationId = event.conversationId;
+                    }
 
-            if (!userMsg || !assistantMsg) {
+                    if (event.type === "done") {
+                        createdConversationId = event.conversationId;
+                    }
+                },
+            });
+
+            if (!completed) {
                 setMessages((prev) =>
                     prev.map((message) =>
                         message.id === tempAssistantId
                             ? {
                                 ...message,
                                 loading: false,
-                                text: "응답 형식이 올바르지 않습니다.",
+                                text: assistantText || "응답이 완료되지 않았습니다.",
                             }
                             : message
                     )
                 );
-                return;
             }
 
-            setMessages((prev) =>
-                prev.map((message) => {
-                    if (message.id === tempUserId) {
-                        return {
-                            id: userMsg.id?.toString?.() ?? tempUserId,
-                            role: "user" as const,
-                            text: userMsg.content ?? text,
-                            createdAt: toMessageTime(userMsg.createdAt),
-                        };
-                    }
-
-                    if (message.id === tempAssistantId) {
-                        return {
-                            id: assistantMsg.id?.toString?.() ?? tempAssistantId,
-                            role: "assistant" as const,
-                            text: assistantMsg.content ?? "응답 없음",
-                            createdAt: toMessageTime(assistantMsg.createdAt),
-                            loading: false,
-                        };
-                    }
-
-                    return message;
-                })
-            );
-
-            if (isNewConversation && result.conversationId) {
+            if (createdConversationId) {
                 navigate(
-                    `/workspace/${workspaceId}/conversation/${result.conversationId}`,
+                    `/workspace/${workspaceId}/conversation/${createdConversationId}`,
                     { replace: true }
                 );
             }
         } catch (error) {
-            console.error("질문 실패", error);
+            if (abortController.signal.aborted) {
+                finishAbortedAssistantMessage(tempAssistantId, assistantText);
+                return;
+            }
+
+            console.error("첫 메시지 스트리밍 실패", error);
 
             const errorMessage = getApiErrorMessage(error);
 
@@ -244,7 +277,277 @@ export default function ConversationPage() {
                 )
             );
         } finally {
+            if (streamAbortRef.current === abortController) {
+                streamAbortRef.current = null;
+            }
+
             setLoading(false);
+        }
+    };
+
+    const askStreamingMessage = async (
+        targetConversationId: number,
+        text: string
+    ) => {
+        const tempUserId = crypto.randomUUID();
+        const tempAssistantId = crypto.randomUUID();
+        const abortController = new AbortController();
+
+        streamAbortRef.current?.abort();
+        streamAbortRef.current = abortController;
+
+        let assistantText = "";
+        let completed = false;
+
+        setMessages((prev) => [
+            ...prev,
+            {
+                id: tempUserId,
+                role: "user",
+                text,
+                createdAt: Date.now(),
+            },
+            {
+                id: tempAssistantId,
+                role: "assistant",
+                text: "질문을 분석하고 있습니다...",
+                createdAt: Date.now(),
+                loading: true,
+            },
+        ]);
+
+        setQ("");
+        setLoading(true);
+
+        try {
+            await sendConversationMessageStream(targetConversationId, text, {
+                signal: abortController.signal,
+                onEvent: (event) => {
+                    handleStreamEvent({
+                        event,
+                        tempUserId,
+                        tempAssistantId,
+                        fallbackUserText: text,
+                        getAssistantText: () => assistantText,
+                        setAssistantText: (value) => {
+                            assistantText = value;
+                        },
+                        markCompleted: () => {
+                            completed = true;
+                        },
+                    });
+                },
+            });
+
+            if (!completed) {
+                setMessages((prev) =>
+                    prev.map((message) =>
+                        message.id === tempAssistantId
+                            ? {
+                                ...message,
+                                loading: false,
+                                text: assistantText || "응답이 완료되지 않았습니다.",
+                            }
+                            : message
+                    )
+                );
+            }
+        } catch (error) {
+            if (abortController.signal.aborted) {
+                finishAbortedAssistantMessage(tempAssistantId, assistantText);
+                return;
+            }
+
+            console.error("스트리밍 질문 실패", error);
+
+            const errorMessage = getApiErrorMessage(error);
+
+            setMessages((prev) =>
+                prev.map((message) =>
+                    message.id === tempAssistantId
+                        ? {
+                            ...message,
+                            loading: false,
+                            text: errorMessage || "질문 처리 중 오류가 발생했습니다.",
+                        }
+                        : message
+                )
+            );
+        } finally {
+            if (streamAbortRef.current === abortController) {
+                streamAbortRef.current = null;
+            }
+
+            setLoading(false);
+        }
+    };
+
+    const cancelStreaming = () => {
+        if (!streamAbortRef.current) return;
+
+        streamAbortRef.current.abort();
+        streamAbortRef.current = null;
+    };
+
+    const finishAbortedAssistantMessage = (
+        tempAssistantId: string,
+        assistantText: string
+    ) => {
+        setMessages((prev) =>
+            prev.map((message) => {
+                if (message.id !== tempAssistantId) {
+                    return message;
+                }
+
+                const text = assistantText.trim();
+
+                return {
+                    ...message,
+                    loading: false,
+                    text: text
+                        ? `${text}\n\n[응답 생성이 중단되었습니다.]`
+                        : "응답 생성이 중단되었습니다.",
+                };
+            })
+        );
+    };
+
+
+    const handleStreamEvent = ({
+                                   event,
+                                   tempUserId,
+                                   tempAssistantId,
+                                   fallbackUserText,
+                                   getAssistantText,
+                                   setAssistantText,
+                                   markCompleted,
+                               }: {
+        event: ChatStreamEvent;
+        tempUserId: string;
+        tempAssistantId: string;
+        fallbackUserText: string;
+        getAssistantText: () => string;
+        setAssistantText: (value: string) => void;
+        markCompleted: () => void;
+    }) => {
+        if (event.type === "user_message") {
+            setMessages((prev) =>
+                prev.map((message) =>
+                    message.id === tempUserId
+                        ? {
+                            id: String(event.messageId),
+                            role: "user" as const,
+                            text: event.content || fallbackUserText,
+                            createdAt: toMessageTime(event.createdAt),
+                        }
+                        : message
+                )
+            );
+
+            return;
+        }
+
+        if (event.type === "status") {
+            const currentAssistantText = getAssistantText();
+
+            if (currentAssistantText) {
+                return;
+            }
+
+            setMessages((prev) =>
+                prev.map((message) =>
+                    message.id === tempAssistantId
+                        ? {
+                            ...message,
+                            text: `${event.message}...`,
+                            loading: true,
+                        }
+                        : message
+                )
+            );
+
+            return;
+        }
+
+        if (event.type === "evidence") {
+            setMessageEvidences((prev) => ({
+                ...prev,
+                [tempAssistantId]: event.evidences ?? [],
+            }));
+
+            return;
+        }
+
+        if (event.type === "token") {
+            const nextText = getAssistantText() + event.content;
+
+            setAssistantText(nextText);
+
+            setMessages((prev) =>
+                prev.map((message) =>
+                    message.id === tempAssistantId
+                        ? {
+                            ...message,
+                            text: nextText,
+                            loading: true,
+                        }
+                        : message
+                )
+            );
+
+            return;
+        }
+
+        if (event.type === "done") {
+            markCompleted();
+
+            const finalText = getAssistantText();
+            const realAssistantId = String(event.messageId);
+
+            setMessages((prev) =>
+                prev.map((message) =>
+                    message.id === tempAssistantId
+                        ? {
+                            id: realAssistantId,
+                            role: "assistant" as const,
+                            text: finalText || "응답 없음",
+                            createdAt: toMessageTime(event.createdAt),
+                            loading: false,
+                        }
+                        : message
+                )
+            );
+
+            setMessageEvidences((prev) => {
+                const evidences = prev[tempAssistantId];
+
+                if (!evidences) {
+                    return prev;
+                }
+
+                const next = { ...prev };
+
+                delete next[tempAssistantId];
+                next[realAssistantId] = evidences;
+
+                return next;
+            });
+
+            return;
+        }
+
+        if (event.type === "error") {
+            setMessages((prev) =>
+                prev.map((message) =>
+                    message.id === tempAssistantId
+                        ? {
+                            ...message,
+                            text: event.message || "스트리밍 중 오류가 발생했습니다.",
+                            loading: false,
+                        }
+                        : message
+                )
+            );
         }
     };
 
@@ -254,6 +557,87 @@ export default function ConversationPage() {
             void ask();
         }
     };
+
+    function EvidenceList({ evidences }: { evidences: ChatStreamEvidence[] }) {
+        if (!evidences.length) {
+            return null;
+        }
+
+        return (
+            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3">
+                <div className="mb-3 flex items-center justify-between gap-2">
+                    <div className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
+                        근거
+                    </div>
+
+                    <div className="text-xs text-slate-400">
+                        {evidences.length}개
+                    </div>
+                </div>
+
+                <div className="space-y-2">
+                    {evidences.map((evidence, index) => {
+                        const scoreText = formatEvidenceScore(evidence.score);
+
+                        return (
+                            <div
+                                key={`${evidence.chunkId ?? "chunk"}-${index}`}
+                                className="rounded-xl border border-slate-200 bg-white px-3 py-3"
+                            >
+                                <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                                <span className="font-bold text-slate-700">
+                                    근거 {index + 1}
+                                </span>
+
+                                    {evidence.chunkId != null ? (
+                                        <span>chunk #{evidence.chunkId}</span>
+                                    ) : null}
+
+                                    {evidence.chunkIndex != null ? (
+                                        <span>index {evidence.chunkIndex}</span>
+                                    ) : null}
+
+                                    {scoreText ? (
+                                        <span className="rounded-full bg-slate-100 px-2 py-0.5 font-semibold text-slate-600">
+                                        유사도 {scoreText}
+                                    </span>
+                                    ) : null}
+                                </div>
+
+                                <p className="line-clamp-3 whitespace-pre-wrap text-sm leading-6 text-slate-600">
+                                    {evidence.contentHead || "근거 내용을 표시할 수 없습니다."}
+                                </p>
+
+                                {(evidence.documentId != null || evidence.versionId != null) ? (
+                                    <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-400">
+                                        {evidence.documentId != null ? (
+                                            <span>documentId: {evidence.documentId}</span>
+                                        ) : null}
+
+                                        {evidence.versionId != null ? (
+                                            <span>versionId: {evidence.versionId}</span>
+                                        ) : null}
+                                    </div>
+                                ) : null}
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        );
+    }
+
+    function formatEvidenceScore(score?: number | null) {
+        if (typeof score !== "number" || Number.isNaN(score)) {
+            return null;
+        }
+
+        if (score >= 0 && score <= 1) {
+            return `${Math.round(score * 100)}%`;
+        }
+
+        return score.toFixed(3);
+    }
 
     return (
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
@@ -355,8 +739,15 @@ export default function ConversationPage() {
                                                     Assistant
                                                 </div>
 
-                                                <div className="whitespace-pre-wrap break-words rounded-[30px] border border-slate-200 bg-white px-6 py-5 text-[15px] leading-7 text-slate-800 shadow-[0_12px_40px_rgba(15,23,42,0.05)]">
-                                                    {message.text}
+                                                <div className="rounded-[30px] border border-slate-200 bg-white px-6 py-5 text-[15px] leading-7 text-slate-800 shadow-[0_12px_40px_rgba(15,23,42,0.05)]">
+                                                    <div className="whitespace-pre-wrap break-words">
+                                                        {message.text}
+                                                        {"loading" in message && message.loading ? (
+                                                            <span className="ml-1 inline-block h-4 w-2 animate-pulse rounded-sm bg-primary-400 align-middle" />
+                                                        ) : null}
+                                                    </div>
+
+                                                    <EvidenceList evidences={messageEvidences[message.id] ?? []} />
                                                 </div>
                                             </div>
                                         </motion.div>
@@ -393,13 +784,23 @@ export default function ConversationPage() {
                                     </span>
                                 </div>
 
-                                <Button
-                                    onClick={() => void ask()}
-                                    disabled={!canAsk}
-                                    className="inline-flex h-11 w-11 items-center justify-center rounded-full shadow-sm"
-                                >
-                                    <Send size={16} />
-                                </Button>
+                                {loading ? (
+                                    <button
+                                        type="button"
+                                        onClick={cancelStreaming}
+                                        className="inline-flex h-11 items-center justify-center rounded-full bg-slate-900 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-slate-800"
+                                    >
+                                        중단
+                                    </button>
+                                ) : (
+                                    <Button
+                                        onClick={() => void ask()}
+                                        disabled={!canAsk}
+                                        className="inline-flex h-11 w-11 items-center justify-center rounded-full shadow-sm"
+                                    >
+                                        <Send size={16} />
+                                    </Button>
+                                )}
                             </div>
                         </div>
                     </div>
