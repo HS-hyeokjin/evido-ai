@@ -87,6 +87,18 @@ export async function sendConversationMessageStream(
     );
 }
 
+export async function sendFirstMessageStream(
+    workspaceId: number | string,
+    content: string,
+    options: SendConversationMessageStreamOptions
+): Promise<void> {
+    await postSseStream(
+        `/api/conversations/workspaces/${workspaceId}/first-message/stream`,
+        { content },
+        options
+    );
+}
+
 async function postSseStream<TBody>(
     path: string,
     body: TBody,

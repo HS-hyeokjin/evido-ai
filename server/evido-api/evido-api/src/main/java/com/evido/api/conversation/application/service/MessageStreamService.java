@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+import com.evido.api.conversation.application.port.in.command.SendFirstMessageCommand;
 
 @Service
 @RequiredArgsConstructor
@@ -44,6 +45,14 @@ public class MessageStreamService {
         SseEmitter emitter = new SseEmitter(0L);
 
         messageStreamTaskExecutor.execute(() -> runStream(command, emitter));
+
+        return emitter;
+    }
+
+    public SseEmitter streamFirstMessage(SendFirstMessageCommand command) {
+        SseEmitter emitter = new SseEmitter(0L);
+
+        messageStreamTaskExecutor.execute(() -> runFirstMessageStream(command, emitter));
 
         return emitter;
     }
@@ -135,6 +144,99 @@ public class MessageStreamService {
                     emitter,
                     "MESSAGE_STREAM_ERROR",
                     "메시지 스트리밍 처리 중 오류가 발생했습니다. " + e.getMessage()
+            );
+
+            emitter.completeWithError(e);
+        }
+    }
+
+    private void runFirstMessageStream(
+            SendFirstMessageCommand command,
+            SseEmitter emitter
+    ) {
+        StringBuilder answerBuffer = new StringBuilder();
+        AtomicBoolean failed = new AtomicBoolean(false);
+
+        try {
+            validateAccess(command.workspaceId(), command.userId());
+
+            String title = generateTitle(command.content());
+
+            Conversation conversation = conversationRepositoryPort.save(
+                    Conversation.create(command.workspaceId(), title)
+            );
+
+            Message userMessage = saveUserMessage(
+                    conversation.getId(),
+                    command.content()
+            );
+
+            send(
+                    emitter,
+                    MessageStreamEvent.userMessage(
+                            conversation.getId(),
+                            userMessage.getId(),
+                            userMessage.getContent(),
+                            userMessage.getCreatedAt()
+                    )
+            );
+
+            AskCommand askCommand = new AskCommand(
+                    command.workspaceId(),
+                    conversation.getId(),
+                    command.content(),
+                    DEFAULT_TOP_K
+            );
+
+            ragPort.answerStream(askCommand, ConversationContext.empty())
+                    .doOnNext(event -> handleRagEvent(
+                            event,
+                            emitter,
+                            answerBuffer,
+                            failed
+                    ))
+                    .blockLast();
+
+            if (failed.get() && answerBuffer.isEmpty()) {
+                emitter.complete();
+                return;
+            }
+
+            if (answerBuffer.isEmpty()) {
+                send(
+                        emitter,
+                        MessageStreamEvent.error(
+                                "EMPTY_ASSISTANT_ANSWER",
+                                "답변 내용이 비어 있습니다."
+                        )
+                );
+                emitter.complete();
+                return;
+            }
+
+            Message assistantMessage = saveAssistantMessage(
+                    conversation.getId(),
+                    answerBuffer.toString()
+            );
+
+            updateSummaryIfNeeded(conversation.getId());
+
+            send(
+                    emitter,
+                    MessageStreamEvent.done(
+                            conversation.getId(),
+                            assistantMessage.getId(),
+                            assistantMessage.getCreatedAt()
+                    )
+            );
+
+            emitter.complete();
+
+        } catch (Exception e) {
+            sendErrorSafely(
+                    emitter,
+                    "FIRST_MESSAGE_STREAM_ERROR",
+                    "첫 메시지 스트리밍 처리 중 오류가 발생했습니다. " + e.getMessage()
             );
 
             emitter.completeWithError(e);
@@ -267,6 +369,22 @@ public class MessageStreamService {
         return messageRepositoryPort.save(
                 Message.createAssistant(conversationId, content)
         );
+    }
+
+    private String generateTitle(String content) {
+        if (content == null || content.isBlank()) {
+            return "새 대화";
+        }
+
+        String normalized = content.replaceAll("\\s+", " ").trim();
+
+        int maxLength = 20;
+
+        if (normalized.length() <= maxLength) {
+            return normalized;
+        }
+
+        return normalized.substring(0, maxLength).trim() + "...";
     }
 
     private void updateSummaryIfNeeded(Long conversationId) {

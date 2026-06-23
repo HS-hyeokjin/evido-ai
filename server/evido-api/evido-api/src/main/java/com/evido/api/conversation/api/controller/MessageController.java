@@ -123,4 +123,26 @@ public class MessageController {
                         response
                 ));
     }
+
+    @Operation(summary = "첫 메시지 스트리밍 전송")
+    @PostMapping(
+            value = "/workspaces/{workspaceId}/first-message/stream",
+            produces = MediaType.TEXT_EVENT_STREAM_VALUE
+    )
+    public SseEmitter sendFirstMessageStream(
+            @PathVariable Long workspaceId,
+            @Valid @RequestBody MessageRequest request,
+            @Parameter(hidden = true)
+            Authentication authentication
+    ) {
+        String userId = currentUserProvider.getUserId(authentication);
+
+        var command = new SendFirstMessageCommand(
+                workspaceId,
+                userId,
+                request.content()
+        );
+
+        return messageStreamService.streamFirstMessage(command);
+    }
 }
