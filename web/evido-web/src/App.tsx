@@ -9,6 +9,7 @@ import ConversationPage from "./pages/conversation/ConversationPage.tsx";
 import SettingsPage from "./pages/setting/SettingsPage";
 import HelpPage from "./pages/help/HelpPage";
 import ConversationListPage from "./pages/conversation/ConversationListPage";
+import IntroPage from "./pages/landing/IntroPage";
 
 import NotFoundPage from "./pages/error/NotFoundPage";
 import ForbiddenPage from "./pages/error/ForbiddenPage";
@@ -18,6 +19,12 @@ import "@react-pdf-viewer/core/lib/styles/index.css";
 import "@react-pdf-viewer/default-layout/lib/styles/index.css";
 
 const router = createBrowserRouter([
+    {
+        path: "/intro",
+        element: <IntroPage />,
+        errorElement: <ServerErrorPage />,
+    },
+
     {
         element: <AppLayout />,
         errorElement: <ServerErrorPage />,
