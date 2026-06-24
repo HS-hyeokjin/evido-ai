@@ -7,7 +7,6 @@ import LoginPage from "./pages/auth/LoginPage";
 import DocumentsUploadPage from "./pages/documents/DocumentsUploadPage";
 import ConversationPage from "./pages/conversation/ConversationPage.tsx";
 import SettingsPage from "./pages/setting/SettingsPage";
-import HelpPage from "./pages/help/HelpPage";
 import ConversationListPage from "./pages/conversation/ConversationListPage";
 import IntroPage from "./pages/landing/IntroPage";
 
@@ -42,7 +41,6 @@ const router = createBrowserRouter([
             },
 
             { path: "/settings", element: <SettingsPage /> },
-            { path: "/help", element: <HelpPage /> },
             { path: "/login", element: <LoginPage /> },
 
             { path: "/403", element: <ForbiddenPage /> },
