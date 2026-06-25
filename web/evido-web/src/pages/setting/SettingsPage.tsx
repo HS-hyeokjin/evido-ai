@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import {
     Check,
+    Loader2,
     Monitor,
     Moon,
     Palette,
@@ -51,6 +52,9 @@ export default function SettingsPage() {
     const {
         settings,
         saved,
+        loading,
+        saving,
+        error,
         updateSetting,
         saveSettings,
         resetSettings,
@@ -247,7 +251,16 @@ export default function SettingsPage() {
                             />
                         </div>
 
-                        {saved ? (
+                        {loading ? (
+                            <div className="mt-5 flex items-center gap-2 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-500">
+                                <Loader2 size={16} className="animate-spin" />
+                                설정을 불러오는 중입니다.
+                            </div>
+                        ) : error ? (
+                            <div className="mt-5 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold leading-6 text-rose-700">
+                                {error}
+                            </div>
+                        ) : saved ? (
                             <div className="mt-5 rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
                                 설정이 저장되었습니다.
                             </div>
@@ -261,7 +274,8 @@ export default function SettingsPage() {
                             <button
                                 type="button"
                                 onClick={resetSettings}
-                                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-600 transition hover:bg-slate-50 active:scale-[0.99]"
+                                disabled={loading || saving}
+                                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-600 transition hover:bg-slate-50 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
                             >
                                 <RefreshCcw size={15} />
                                 초기화
@@ -269,11 +283,16 @@ export default function SettingsPage() {
 
                             <button
                                 type="button"
-                                onClick={saveSettings}
-                                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary-500 px-4 py-3 text-sm font-black text-white shadow-sm transition hover:bg-primary-600 active:scale-[0.99]"
+                                onClick={() => void saveSettings()}
+                                disabled={loading || saving || saved}
+                                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary-500 px-4 py-3 text-sm font-black text-white shadow-sm transition hover:bg-primary-600 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
                             >
-                                <Save size={16} />
-                                저장
+                                {saving ? (
+                                    <Loader2 size={16} className="animate-spin" />
+                                ) : (
+                                    <Save size={16} />
+                                )}
+                                {saving ? "저장 중" : "저장"}
                             </button>
                         </div>
 
