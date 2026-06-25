@@ -28,6 +28,9 @@ class GroqLLM:
             conversation_summary: str | None = None,
             recent_messages: list | None = None,
             rewritten_query: str | None = None,
+            answer_style: str | None = None,
+            evidence_mode: str | None = None,
+            answer_style_instruction: str | None = None,
     ) -> str:
         system, user = self._build_messages(
             query=query,
@@ -36,6 +39,9 @@ class GroqLLM:
             conversation_summary=conversation_summary,
             recent_messages=recent_messages,
             rewritten_query=rewritten_query,
+            answer_style=answer_style,
+            evidence_mode=evidence_mode,
+            answer_style_instruction=answer_style_instruction,
         )
 
         messages: List[ChatCompletionMessageParam] = [
@@ -64,6 +70,9 @@ class GroqLLM:
             conversation_summary: str | None = None,
             recent_messages: list | None = None,
             rewritten_query: str | None = None,
+            answer_style: str | None = None,
+            evidence_mode: str | None = None,
+            answer_style_instruction: str | None = None,
     ) -> Iterator[str]:
         system, user = self._build_messages(
             query=query,
@@ -72,6 +81,9 @@ class GroqLLM:
             conversation_summary=conversation_summary,
             recent_messages=recent_messages,
             rewritten_query=rewritten_query,
+            answer_style=answer_style,
+            evidence_mode=evidence_mode,
+            answer_style_instruction=answer_style_instruction,
         )
 
         messages: List[ChatCompletionMessageParam] = [
@@ -113,6 +125,9 @@ class GroqLLM:
             conversation_summary: str | None = None,
             recent_messages: list | None = None,
             rewritten_query: str | None = None,
+            answer_style: str | None = None,
+            evidence_mode: str | None = None,
+            answer_style_instruction: str | None = None,
     ) -> tuple[str, str]:
         top = (contexts or [])[: self.max_evidence_chunks]
 
@@ -141,7 +156,12 @@ class GroqLLM:
 
         context_block = "\n\n".join(evidence_texts) if evidence_texts else "(근거 없음)"
 
-        system = self._build_system_prompt(prompt_type)
+        system = self._build_system_prompt(
+            prompt_type=prompt_type,
+            answer_style=answer_style,
+            evidence_mode=evidence_mode,
+            answer_style_instruction=answer_style_instruction,
+        )
         recent_text = self._format_recent_messages(recent_messages)
 
         user = (
@@ -165,7 +185,39 @@ class GroqLLM:
 
         return system, user
 
-    def _build_system_prompt(self, prompt_type: str) -> str:
+    def _build_user_setting_prompt(
+            self,
+            answer_style: str | None = None,
+            evidence_mode: str | None = None,
+            answer_style_instruction: str | None = None,
+    ) -> str:
+        lines = ["\n사용자 답변 설정:"]
+
+        if answer_style:
+            lines.append(f"- answerStyle: {answer_style}")
+
+        if evidence_mode:
+            lines.append(f"- evidenceMode: {evidence_mode}")
+
+        if answer_style_instruction:
+            lines.append("- 사용자 설정 지시문:")
+            lines.append(answer_style_instruction)
+        else:
+            lines.append("- 기본값: 문서 근거 중심으로 명확하게 답변한다.")
+
+        lines.append(
+            "위 사용자 답변 설정은 반드시 반영하되, 문서 근거 우선 원칙보다 앞서서는 안 된다.\n"
+        )
+
+        return "\n".join(lines)
+
+    def _build_system_prompt(
+            self,
+            prompt_type: str,
+            answer_style: str | None = None,
+            evidence_mode: str | None = None,
+            answer_style_instruction: str | None = None,
+    ) -> str:
         base = (
             "너는 문서 기반 Q&A 어시스턴트다.\n"
             "기본 원칙:\n"
@@ -177,41 +229,51 @@ class GroqLLM:
             "6) 지나치게 딱딱한 보고서 형식보다는 이해하기 쉽게 설명한다.\n"
         )
 
+        user_setting_prompt = self._build_user_setting_prompt(
+            answer_style=answer_style,
+            evidence_mode=evidence_mode,
+            answer_style_instruction=answer_style_instruction,
+        )
+
         if prompt_type == "summary":
             return (
-                base
-                + "\n너의 작업은 문서 내용을 요약하는 것이다.\n"
-                "답변 형식:\n"
-                "- 핵심 요약\n"
-                "- 주요 내용\n"
-                "- 실무적으로 중요한 부분\n"
-                "문서 근거에 없는 내용은 추가하지 마라.\n"
+                    base
+                    + user_setting_prompt
+                    + "\n너의 작업은 문서 내용을 요약하는 것이다.\n"
+                      "답변 형식:\n"
+                      "- 핵심 요약\n"
+                      "- 주요 내용\n"
+                      "- 실무적으로 중요한 부분\n"
+                      "문서 근거에 없는 내용은 추가하지 마라.\n"
             )
 
         if prompt_type == "comparison":
             return (
-                base
-                + "\n너의 작업은 질문에서 요구한 항목들을 비교하는 것이다.\n"
-                "답변 형식:\n"
-                "- 공통점\n"
-                "- 차이점\n"
-                "- 결론\n"
-                "문서 근거에 없는 비교 내용은 추측하지 마라.\n"
+                    base
+                    + user_setting_prompt
+                    + "\n너의 작업은 질문에서 요구한 항목들을 비교하는 것이다.\n"
+                      "답변 형식:\n"
+                      "- 공통점\n"
+                      "- 차이점\n"
+                      "- 결론\n"
+                      "문서 근거에 없는 비교 내용은 추측하지 마라.\n"
             )
 
         if prompt_type == "search":
             return (
-                base
-                + "\n너의 작업은 사용자가 찾는 내용이 문서 근거에 있는지 확인하고 설명하는 것이다.\n"
-                "답변 형식:\n"
-                "- 찾은 내용\n"
-                "- 관련 근거 요약\n"
-                "- 문서에서 확인되지 않는 부분\n"
+                    base
+                    + user_setting_prompt
+                    + "\n너의 작업은 사용자가 찾는 내용이 문서 근거에 있는지 확인하고 설명하는 것이다.\n"
+                      "답변 형식:\n"
+                      "- 찾은 내용\n"
+                      "- 관련 근거 요약\n"
+                      "- 문서에서 확인되지 않는 부분\n"
             )
 
         return (
-            base
-            + "\n너의 작업은 사용자의 질문에 대해 문서 근거를 바탕으로 자연스럽게 답변하는 것이다.\n"
+                base
+                + user_setting_prompt
+                + "\n너의 작업은 사용자의 질문에 대해 문서 근거를 바탕으로 자연스럽게 답변하는 것이다.\n"
         )
 
     def _temperature_by_prompt_type(self, prompt_type: str) -> float:

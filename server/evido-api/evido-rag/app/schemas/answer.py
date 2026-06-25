@@ -22,6 +22,10 @@ class AnswerRequest(BaseModel):
     conversationSummary: Optional[str] = None
     recentMessages: List[RecentMessage] = Field(default_factory=list)
 
+    answerStyle: Optional[str] = "EVIDENCE"
+    evidenceMode: Optional[str] = "SIMPLE"
+    answerStyleInstruction: Optional[str] = None
+
 
 class AnswerResponse(BaseModel):
     queryText: str

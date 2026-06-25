@@ -56,7 +56,9 @@ public class MessageService implements MessageUseCase {
                 conversation.getWorkspaceId(),
                 conversation.getId(),
                 command.content(),
-                DEFAULT_TOP_K
+                DEFAULT_TOP_K,
+                command.effectiveAnswerStyle(),
+                command.effectiveEvidenceMode()
         );
 
         return qaUseCase.answer(askCommand, context)
@@ -116,7 +118,9 @@ public class MessageService implements MessageUseCase {
                 command.workspaceId(),
                 conversation.getId(),
                 command.content(),
-                DEFAULT_TOP_K
+                DEFAULT_TOP_K,
+                command.effectiveAnswerStyle(),
+                command.effectiveEvidenceMode()
         );
 
         return qaUseCase.answer(askCommand, ConversationContext.empty())

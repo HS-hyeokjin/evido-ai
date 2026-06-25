@@ -97,7 +97,9 @@ public class MessageStreamService {
                     conversation.getWorkspaceId(),
                     conversation.getId(),
                     command.content(),
-                    DEFAULT_TOP_K
+                    DEFAULT_TOP_K,
+                    command.effectiveAnswerStyle(),
+                    command.effectiveEvidenceMode()
             );
 
             ragPort.answerStream(askCommand, context)
@@ -216,10 +218,12 @@ public class MessageStreamService {
             );
 
             AskCommand askCommand = new AskCommand(
-                    command.workspaceId(),
+                    conversation.getWorkspaceId(),
                     conversation.getId(),
                     command.content(),
-                    DEFAULT_TOP_K
+                    DEFAULT_TOP_K,
+                    command.effectiveAnswerStyle(),
+                    command.effectiveEvidenceMode()
             );
 
             ragPort.answerStream(askCommand, ConversationContext.empty())
