@@ -8,7 +8,11 @@ import {
 import { useNavigate, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Send, Sparkles } from "lucide-react";
-
+import { useUserSettings } from "../../hooks/useUserSettings";
+import {
+    getAnswerStyleLabel,
+    getEvidenceModeLabel,
+} from "../../types/userSettings";
 import Button from "../../components/common/Button";
 import FileViewerPanel from "./FileViewerPanel";
 import {
@@ -59,6 +63,11 @@ function toMessageTime(createdAt?: string | null) {
 export default function ConversationPage() {
     const { workspaceId: wsParam, conversationId: conversationParam } = useParams();
     const navigate = useNavigate();
+
+    const { settings } = useUserSettings();
+
+    const answerStyleLabel = getAnswerStyleLabel(settings.answerStyle);
+    const evidenceModeLabel = getEvidenceModeLabel(settings.evidenceMode);
 
     const workspaceId = Number(wsParam);
     const isValidWorkspaceId = !Number.isNaN(workspaceId) && workspaceId > 0;
@@ -210,6 +219,8 @@ export default function ConversationPage() {
         try {
             await sendFirstMessageStream(workspaceId, text, {
                 signal: abortController.signal,
+                answerStyle: settings.answerStyle,
+                evidenceMode: settings.evidenceMode,
                 onEvent: (event) => {
                     handleStreamEvent({
                         event,
@@ -322,6 +333,8 @@ export default function ConversationPage() {
         try {
             await sendConversationMessageStream(targetConversationId, text, {
                 signal: abortController.signal,
+                answerStyle: settings.answerStyle,
+                evidenceMode: settings.evidenceMode,
                 onEvent: (event) => {
                     handleStreamEvent({
                         event,
@@ -588,15 +601,6 @@ export default function ConversationPage() {
                                 <span className="font-bold text-slate-700">
                                     근거 {index + 1}
                                 </span>
-
-                                    {evidence.chunkId != null ? (
-                                        <span>chunk #{evidence.chunkId}</span>
-                                    ) : null}
-
-                                    {evidence.chunkIndex != null ? (
-                                        <span>index {evidence.chunkIndex}</span>
-                                    ) : null}
-
                                     {scoreText ? (
                                         <span className="rounded-full bg-slate-100 px-2 py-0.5 font-semibold text-slate-600">
                                         유사도 {scoreText}
@@ -774,14 +778,22 @@ export default function ConversationPage() {
                             </div>
 
                             <div className="flex items-center justify-between px-4 pb-4 pt-3">
-                                <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
-                                    <span className="rounded-full bg-slate-100 px-2.5 py-1">
-                                        문서 근거 기반
-                                    </span>
+                                <div className="flex flex-wrap items-center gap-2 text-xs">
+    <span className="rounded-full bg-slate-100 px-2.5 py-1 font-medium text-slate-500">
+        문서 근거 기반
+    </span>
 
-                                    <span className="rounded-full bg-slate-100 px-2.5 py-1">
-                                        Enter 전송
-                                    </span>
+                                    <span className="rounded-full bg-primary-50 px-2.5 py-1 font-bold text-primary-600">
+        {answerStyleLabel}
+    </span>
+
+                                    <span className="rounded-full bg-slate-100 px-2.5 py-1 font-medium text-slate-500">
+        {evidenceModeLabel}
+    </span>
+
+                                    <span className="rounded-full bg-slate-100 px-2.5 py-1 font-medium text-slate-400">
+        Enter 전송
+    </span>
                                 </div>
 
                                 {loading ? (

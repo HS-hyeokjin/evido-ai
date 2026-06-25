@@ -7,6 +7,10 @@ import type {
 } from "../types/Conversation";
 import type { ChatStreamEvent } from "../types/ChatStream";
 import type { CommonResponse } from "../types/ApiResponse";
+import type {
+    AnswerStyle,
+    EvidenceMode,
+} from "../types/userSettings";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
 
@@ -50,29 +54,46 @@ export function getConversationMessages(
     );
 }
 
+export type MessageSettingPayload = {
+    answerStyle?: AnswerStyle;
+    evidenceMode?: EvidenceMode;
+};
+
 export function sendFirstMessage(
     workspaceId: number | string,
-    content: string
+    content: string,
+    settings?: MessageSettingPayload,
 ): Promise<SendMessageResponse> {
-    return postData<SendMessageResponse, { content: string }>(
+    return postData<SendMessageResponse, { content: string } & MessageSettingPayload>(
         `/api/conversations/workspaces/${workspaceId}/first-message`,
-        { content }
+        {
+            content,
+            answerStyle: settings?.answerStyle,
+            evidenceMode: settings?.evidenceMode,
+        }
     );
 }
 
 export function sendConversationMessage(
     conversationId: number | string,
-    content: string
+    content: string,
+    settings?: MessageSettingPayload,
 ): Promise<SendMessageResponse> {
-    return postData<SendMessageResponse, { content: string }>(
+    return postData<SendMessageResponse, { content: string } & MessageSettingPayload>(
         `/api/conversations/${conversationId}/messages`,
-        { content }
+        {
+            content,
+            answerStyle: settings?.answerStyle,
+            evidenceMode: settings?.evidenceMode,
+        }
     );
 }
 
 export type SendConversationMessageStreamOptions = {
     signal?: AbortSignal;
     onEvent: (event: ChatStreamEvent) => void;
+    answerStyle?: AnswerStyle;
+    evidenceMode?: EvidenceMode;
 };
 
 export async function sendConversationMessageStream(
@@ -82,7 +103,11 @@ export async function sendConversationMessageStream(
 ): Promise<void> {
     await postSseStream(
         `/api/conversations/${conversationId}/messages/stream`,
-        { content },
+        {
+            content,
+            answerStyle: options.answerStyle,
+            evidenceMode: options.evidenceMode,
+        },
         options
     );
 }
@@ -94,7 +119,11 @@ export async function sendFirstMessageStream(
 ): Promise<void> {
     await postSseStream(
         `/api/conversations/workspaces/${workspaceId}/first-message/stream`,
-        { content },
+        {
+            content,
+            answerStyle: options.answerStyle,
+            evidenceMode: options.evidenceMode,
+        },
         options
     );
 }

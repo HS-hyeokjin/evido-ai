@@ -182,6 +182,9 @@ class AnswerOrchestrator:
                 conversation_summary=req.conversationSummary,
                 recent_messages=req.recentMessages,
                 rewritten_query=rewritten_query,
+                answer_style=req.answerStyle,
+                evidence_mode=req.evidenceMode,
+                answer_style_instruction=req.answerStyleInstruction,
             )
         except Exception as e:
             print("[LLM ERROR]", repr(e))
@@ -277,12 +280,15 @@ class AnswerOrchestrator:
 
         try:
             for token in self.llm.stream_answer(
-                query=req.queryText,
-                contexts=contexts,
-                prompt_type=route.prompt_type,
-                conversation_summary=req.conversationSummary,
-                recent_messages=req.recentMessages,
-                rewritten_query=rewritten_query,
+                    query=req.queryText,
+                    contexts=contexts,
+                    prompt_type=route.prompt_type,
+                    conversation_summary=req.conversationSummary,
+                    recent_messages=req.recentMessages,
+                    rewritten_query=rewritten_query,
+                    answer_style=req.answerStyle,
+                    evidence_mode=req.evidenceMode,
+                    answer_style_instruction=req.answerStyleInstruction,
             ):
                 if not token:
                     continue

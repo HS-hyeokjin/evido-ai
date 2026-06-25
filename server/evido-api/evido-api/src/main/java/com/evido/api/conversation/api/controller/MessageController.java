@@ -67,7 +67,9 @@ public class MessageController {
         var command = new SendMessageCommand(
                 conversationId,
                 userId,
-                request.content()
+                request.content(),
+                request.answerStyle(),
+                request.evidenceMode()
         );
 
         return messageUseCase.sendMessage(command)
@@ -94,7 +96,9 @@ public class MessageController {
         var command = new SendMessageCommand(
                 conversationId,
                 userId,
-                request.content()
+                request.content(),
+                request.answerStyle(),
+                request.evidenceMode()
         );
 
         return messageStreamService.streamMessage(command);
@@ -113,7 +117,9 @@ public class MessageController {
         var command = new SendFirstMessageCommand(
                 workspaceId,
                 userId,
-                request.content()
+                request.content(),
+                request.answerStyle(),
+                request.evidenceMode()
         );
 
         return messageUseCase.sendFirstMessage(command)
@@ -140,7 +146,9 @@ public class MessageController {
         var command = new SendFirstMessageCommand(
                 workspaceId,
                 userId,
-                request.content()
+                request.content(),
+                request.answerStyle(),
+                request.evidenceMode()
         );
 
         return messageStreamService.streamFirstMessage(command);
