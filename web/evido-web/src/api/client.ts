@@ -5,14 +5,14 @@ import axios, {
 import { ApiError } from "./ApiError";
 import type { CommonResponse } from "../types/ApiResponse";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL;
+const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
 
 type RetryConfig = InternalAxiosRequestConfig & {
     _retry?: boolean;
 };
 
 const api = axios.create({
-    baseURL: API_BASE,
+    baseURL: API_BASE || undefined,
     withCredentials: true,
     timeout: 15000,
 });
@@ -23,9 +23,10 @@ const refreshAccessToken = async () => {
     if (!refreshPromise) {
         refreshPromise = axios
             .post(
-                `${API_BASE}/api/auth/refresh`,
+                "/api/auth/refresh",
                 {},
                 {
+                    baseURL: API_BASE || undefined,
                     withCredentials: true,
                     timeout: 15000,
                 }

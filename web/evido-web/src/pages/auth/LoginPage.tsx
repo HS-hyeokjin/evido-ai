@@ -1,13 +1,15 @@
 import Card from "../../components/common/Card";
 import Button from "../../components/common/Button";
 
+const OAUTH_BASE = (
+    import.meta.env.VITE_OAUTH_BASE_URL ??
+    import.meta.env.VITE_API_BASE_URL ??
+    ""
+).replace(/\/+$/, "");
+
 export default function LoginPage() {
-
-    const API_BASE = import.meta.env.VITE_API_BASE_URL;
-
     const handleGoogleLogin = () => {
-        window.location.href =
-            `${API_BASE}/oauth2/authorization/google`;
+        window.location.href = `${OAUTH_BASE}/oauth2/authorization/google`;
     };
 
     return (

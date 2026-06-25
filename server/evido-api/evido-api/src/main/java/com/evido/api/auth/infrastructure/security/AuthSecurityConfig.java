@@ -31,7 +31,7 @@ public class AuthSecurityConfig {
                 .headers(headers -> headers
                         .frameOptions(frame -> frame.disable())
                 )
-                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/v3/api-docs/**",
@@ -40,6 +40,7 @@ public class AuthSecurityConfig {
                         ).permitAll()
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/upload/**")
                         .hasAnyRole("USER", "GUEST")
@@ -47,6 +48,7 @@ public class AuthSecurityConfig {
                 )
                 .oauth2Login(oauth -> oauth
                         .successHandler(oAuth2SuccessHandler)
+                        .failureUrl("https://evido.site/login?oauthError=true")
                 )
                 .addFilterBefore(
                         jwtAuthenticationFilter,
