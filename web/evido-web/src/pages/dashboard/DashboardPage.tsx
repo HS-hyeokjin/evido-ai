@@ -8,7 +8,6 @@ import api from "../../api/client";
 import {
     BookOpen,
     ChevronRight,
-    HelpCircle,
     Layers,
     MessageSquareText,
     Plus,
@@ -35,6 +34,24 @@ type StepItemProps = {
     desc: string;
 };
 
+type CreateWorkspaceResponse = {
+    id?: number | string;
+    workspaceId?: number | string;
+    data?: {
+        id?: number | string;
+        workspaceId?: number | string;
+    };
+};
+
+function getCreatedWorkspaceId(data: CreateWorkspaceResponse) {
+    return (
+        data?.data?.id ??
+        data?.data?.workspaceId ??
+        data?.id ??
+        data?.workspaceId
+    );
+}
+
 export default function WorkspaceHomePage() {
     const navigate = useNavigate();
 
@@ -56,17 +73,30 @@ export default function WorkspaceHomePage() {
         try {
             setModalLoading(true);
 
-            const res = await api.post("/api/workspaces", { name });
-            const createdWorkspaceId = res.data?.id;
+            const res = await api.post<CreateWorkspaceResponse>("/api/workspaces", {
+                name,
+            });
 
-            setCreateModalOpen(false);
+            const createdWorkspaceId = getCreatedWorkspaceId(res.data);
 
-            if (createdWorkspaceId) {
-                navigate(`/workspace/${createdWorkspaceId}`);
+            if (!createdWorkspaceId) {
+                console.error(
+                    "워크스페이스 생성 응답에서 ID를 찾을 수 없습니다.",
+                    res.data
+                );
+                alert(
+                    "워크스페이스는 생성되었지만 이동할 수 없습니다. 응답 값을 확인해주세요."
+                );
                 return;
             }
 
-            navigate("/");
+            setCreateModalOpen(false);
+
+            window.dispatchEvent(new Event("workspace:changed"));
+
+            navigate(`/workspace/${createdWorkspaceId}`, {
+                replace: true,
+            });
         } catch (error) {
             console.error(error);
             alert("워크스페이스 생성에 실패했습니다.");
@@ -161,24 +191,17 @@ export default function WorkspaceHomePage() {
                                         빠른 시작
                                     </h2>
                                     <p className="mt-0.5 text-xs leading-5 text-[#8B84A0]">
-                                        현재 화면에서 바로 새 작업 공간을 만들거나 도움말로 이동할 수 있습니다.
+                                        현재 화면에서 바로 새 작업 공간을 만들 수 있습니다.
                                     </p>
                                 </div>
                             </div>
 
-                            <div className="mt-5 grid gap-3 md:grid-cols-2">
+                            <div className="mt-5 grid gap-3">
                                 <ActionButton
                                     icon={Plus}
                                     title="워크스페이스 생성"
-                                    desc="새 프로젝트나 업무를 위한 작업 공간을 만듭니다."
+                                    desc="새 프로젝트나 업무를 위한 작업 공간을 만들고 바로 이동합니다."
                                     onClick={openCreateWorkspaceModal}
-                                />
-
-                                <ActionButton
-                                    icon={HelpCircle}
-                                    title="도움말"
-                                    desc="EVIDO 사용 방법과 주요 기능을 확인하세요."
-                                    onClick={() => navigate("/help")}
                                 />
                             </div>
                         </div>
@@ -226,7 +249,7 @@ export default function WorkspaceHomePage() {
             <TextInputModal
                 open={createModalOpen}
                 title="새 워크스페이스 만들기"
-                placeholder="예: EVIDO 프로젝트"
+                placeholder="제목입력"
                 submitText="생성"
                 initialValue=""
                 loading={modalLoading}

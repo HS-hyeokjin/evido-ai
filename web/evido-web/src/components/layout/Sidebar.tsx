@@ -3,7 +3,6 @@ import { NavLink, useNavigate, useParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import {
     LayoutDashboard,
-    HelpCircle,
     ChevronDown,
     ChevronRight,
     MoreHorizontal,
@@ -89,12 +88,14 @@ export default function Sidebar() {
     const { user, loading } = useAuth();
 
     const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
-    const [conversations, setConversations] = useState<ConversationListItem[]>([]);
+    const [conversations, setConversations] = useState<ConversationListItem[]>(
+        []
+    );
     const [wsOpen, setWsOpen] = useState(true);
 
-    const [workspaceMenuOpenId, setWorkspaceMenuOpenId] = useState<number | null>(
-        null
-    );
+    const [workspaceMenuOpenId, setWorkspaceMenuOpenId] = useState<
+        number | null
+    >(null);
     const [conversationMenuOpenId, setConversationMenuOpenId] = useState<
         string | null
     >(null);
@@ -139,6 +140,21 @@ export default function Sidebar() {
 
     useEffect(() => {
         void fetchWorkspaces();
+    }, [workspaceId, fetchWorkspaces]);
+
+    useEffect(() => {
+        const handleWorkspaceChanged = () => {
+            void fetchWorkspaces();
+        };
+
+        window.addEventListener("workspace:changed", handleWorkspaceChanged);
+
+        return () => {
+            window.removeEventListener(
+                "workspace:changed",
+                handleWorkspaceChanged
+            );
+        };
     }, [fetchWorkspaces]);
 
     useEffect(() => {
@@ -189,7 +205,9 @@ export default function Sidebar() {
         });
     };
 
-    const openRenameConversationModal = (conversation: ConversationListItem) => {
+    const openRenameConversationModal = (
+        conversation: ConversationListItem
+    ) => {
         closeAllMenus();
 
         setInputModal({
@@ -216,7 +234,9 @@ export default function Sidebar() {
         });
     };
 
-    const openDeleteConversationModal = (conversation: ConversationListItem) => {
+    const openDeleteConversationModal = (
+        conversation: ConversationListItem
+    ) => {
         closeAllMenus();
 
         setConfirmModal({
@@ -234,14 +254,23 @@ export default function Sidebar() {
     const handleInputModalSubmit = async (value: string) => {
         if (!inputModal.open) return;
 
+        const trimmedValue = value.trim();
+
+        if (!trimmedValue) {
+            alert("이름을 입력해주세요.");
+            return;
+        }
+
         try {
             setModalLoading(true);
 
             if (inputModal.mode === "createWorkspace") {
-                const createdWorkspace = await createWorkspace(value);
+                const createdWorkspace = await createWorkspace(trimmedValue);
 
                 await fetchWorkspaces();
                 setInputModal({ open: false });
+
+                window.dispatchEvent(new Event("workspace:changed"));
 
                 moveToWorkspace(createdWorkspace.id);
                 return;
@@ -250,16 +279,20 @@ export default function Sidebar() {
             if (inputModal.mode === "renameWorkspace" && inputModal.workspace) {
                 const updatedWorkspace = await renameWorkspace(
                     inputModal.workspace.id,
-                    value
+                    trimmedValue
                 );
 
                 setWorkspaces((prev) =>
                     prev.map((item) =>
-                        item.id === updatedWorkspace.id ? updatedWorkspace : item
+                        item.id === updatedWorkspace.id
+                            ? updatedWorkspace
+                            : item
                     )
                 );
 
                 setInputModal({ open: false });
+
+                window.dispatchEvent(new Event("workspace:changed"));
                 return;
             }
 
@@ -269,7 +302,7 @@ export default function Sidebar() {
             ) {
                 const updatedConversationResponse = await renameConversation(
                     inputModal.conversation.id,
-                    value
+                    trimmedValue
                 );
 
                 const updatedConversation = toConversationListItem(
@@ -346,7 +379,10 @@ export default function Sidebar() {
                 setWorkspaces(remaining);
                 setConfirmModal({ open: false });
 
-                const isCurrentWorkspace = String(targetWorkspaceId) === workspaceId;
+                window.dispatchEvent(new Event("workspace:changed"));
+
+                const isCurrentWorkspace =
+                    String(targetWorkspaceId) === workspaceId;
 
                 if (!isCurrentWorkspace) {
                     return;
@@ -358,7 +394,8 @@ export default function Sidebar() {
                 }
 
                 const initializedWorkspace = await initWorkspace();
-                const initializedWorkspaceId = initializedWorkspace.workspaceId;
+                const initializedWorkspaceId =
+                    initializedWorkspace.workspaceId;
 
                 await fetchWorkspaces();
 
@@ -503,7 +540,9 @@ export default function Sidebar() {
                                         >
                                             <button
                                                 type="button"
-                                                onClick={() => moveToWorkspace(ws.id)}
+                                                onClick={() =>
+                                                    moveToWorkspace(ws.id)
+                                                }
                                                 className={`flex min-w-0 flex-1 items-center rounded-2xl px-3 py-2.5 text-sm transition ${
                                                     isActiveWorkspace
                                                         ? "bg-primary-100 text-primary-700 shadow-sm"
@@ -527,13 +566,19 @@ export default function Sidebar() {
                                                     data-sidebar-menu
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        setConversationMenuOpenId(null);
-                                                        setWorkspaceMenuOpenId((prev) =>
-                                                            prev === ws.id ? null : ws.id
+                                                        setConversationMenuOpenId(
+                                                            null
+                                                        );
+                                                        setWorkspaceMenuOpenId(
+                                                            (prev) =>
+                                                                prev === ws.id
+                                                                    ? null
+                                                                    : ws.id
                                                         );
                                                     }}
                                                     className={`rounded-lg p-1.5 transition ${
-                                                        workspaceMenuOpenId === ws.id
+                                                        workspaceMenuOpenId ===
+                                                        ws.id
                                                             ? "bg-white text-slate-700 shadow-sm"
                                                             : "text-slate-400 opacity-0 group-hover:opacity-100 hover:bg-white hover:text-slate-700"
                                                     }`}
@@ -542,53 +587,58 @@ export default function Sidebar() {
                                                 </button>
 
                                                 <AnimatePresence>
-                                                    {workspaceMenuOpenId === ws.id && (
-                                                        <motion.div
-                                                            data-sidebar-menu
-                                                            initial={{
-                                                                opacity: 0,
-                                                                scale: 0.95,
-                                                                y: -4,
-                                                            }}
-                                                            animate={{
-                                                                opacity: 1,
-                                                                scale: 1,
-                                                                y: 0,
-                                                            }}
-                                                            exit={{
-                                                                opacity: 0,
-                                                                scale: 0.95,
-                                                                y: -4,
-                                                            }}
-                                                            className="absolute right-0 top-10 z-20 w-40 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_16px_40px_rgba(15,23,42,0.14)]"
-                                                        >
-                                                            <button
-                                                                type="button"
-                                                                onClick={() =>
-                                                                    openRenameWorkspaceModal(
-                                                                        ws
-                                                                    )
-                                                                }
-                                                                className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+                                                    {workspaceMenuOpenId ===
+                                                        ws.id && (
+                                                            <motion.div
+                                                                data-sidebar-menu
+                                                                initial={{
+                                                                    opacity: 0,
+                                                                    scale: 0.95,
+                                                                    y: -4,
+                                                                }}
+                                                                animate={{
+                                                                    opacity: 1,
+                                                                    scale: 1,
+                                                                    y: 0,
+                                                                }}
+                                                                exit={{
+                                                                    opacity: 0,
+                                                                    scale: 0.95,
+                                                                    y: -4,
+                                                                }}
+                                                                className="absolute right-0 top-10 z-20 w-40 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_16px_40px_rgba(15,23,42,0.14)]"
                                                             >
-                                                                <Pencil size={14} />
-                                                                이름 변경
-                                                            </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() =>
+                                                                        openRenameWorkspaceModal(
+                                                                            ws
+                                                                        )
+                                                                    }
+                                                                    className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+                                                                >
+                                                                    <Pencil
+                                                                        size={14}
+                                                                    />
+                                                                    이름 변경
+                                                                </button>
 
-                                                            <button
-                                                                type="button"
-                                                                onClick={() =>
-                                                                    openDeleteWorkspaceModal(
-                                                                        ws
-                                                                    )
-                                                                }
-                                                                className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-red-500 hover:bg-red-50"
-                                                            >
-                                                                <Trash2 size={14} />
-                                                                삭제
-                                                            </button>
-                                                        </motion.div>
-                                                    )}
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() =>
+                                                                        openDeleteWorkspaceModal(
+                                                                            ws
+                                                                        )
+                                                                    }
+                                                                    className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-red-500 hover:bg-red-50"
+                                                                >
+                                                                    <Trash2
+                                                                        size={14}
+                                                                    />
+                                                                    삭제
+                                                                </button>
+                                                            </motion.div>
+                                                        )}
                                                 </AnimatePresence>
                                             </div>
                                         </div>
@@ -647,10 +697,11 @@ export default function Sidebar() {
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 setWorkspaceMenuOpenId(null);
-                                                setConversationMenuOpenId((prev) =>
-                                                    prev === conversation.id
-                                                        ? null
-                                                        : conversation.id
+                                                setConversationMenuOpenId(
+                                                    (prev) =>
+                                                        prev === conversation.id
+                                                            ? null
+                                                            : conversation.id
                                                 );
                                             }}
                                             className={`rounded-lg p-1.5 transition ${
@@ -721,22 +772,6 @@ export default function Sidebar() {
                 )}
 
                 <div className="mt-auto pt-4">
-                    <div className="space-y-1 bg-white/60 p-2">
-                        <NavLink
-                            to="/help"
-                            className={({ isActive }) =>
-                                `flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition ${
-                                    isActive
-                                        ? "bg-primary-100 text-primary-700"
-                                        : "text-slate-700 hover:bg-slate-100"
-                                }`
-                            }
-                        >
-                            <HelpCircle size={16} />
-                            도움말
-                        </NavLink>
-                    </div>
-
                     <div className="rounded-3xl border border-slate-200 bg-white/85 p-3 shadow-sm backdrop-blur">
                         {loading ? (
                             <div className="flex items-center gap-3 rounded-2xl bg-slate-50 px-3 py-3">
@@ -808,9 +843,15 @@ export default function Sidebar() {
             <TextInputModal
                 open={inputModal.open}
                 title={inputModal.open ? inputModal.title : ""}
-                description={inputModal.open ? inputModal.description : undefined}
-                placeholder={inputModal.open ? inputModal.placeholder : undefined}
-                submitText={inputModal.open ? inputModal.submitText : undefined}
+                description={
+                    inputModal.open ? inputModal.description : undefined
+                }
+                placeholder={
+                    inputModal.open ? inputModal.placeholder : undefined
+                }
+                submitText={
+                    inputModal.open ? inputModal.submitText : undefined
+                }
                 initialValue={inputModal.open ? inputModal.initialValue : ""}
                 loading={modalLoading}
                 onClose={() => {
@@ -823,8 +864,12 @@ export default function Sidebar() {
             <ConfirmModal
                 open={confirmModal.open}
                 title={confirmModal.open ? confirmModal.title : ""}
-                description={confirmModal.open ? confirmModal.description : undefined}
-                confirmText={confirmModal.open ? confirmModal.confirmText : undefined}
+                description={
+                    confirmModal.open ? confirmModal.description : undefined
+                }
+                confirmText={
+                    confirmModal.open ? confirmModal.confirmText : undefined
+                }
                 loading={modalLoading}
                 onClose={() => {
                     if (modalLoading) return;
