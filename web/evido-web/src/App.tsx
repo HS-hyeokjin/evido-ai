@@ -19,17 +19,17 @@ import "@react-pdf-viewer/default-layout/lib/styles/index.css";
 
 const router = createBrowserRouter([
     {
-        path: "/intro",
+        path: "/",
         element: <IntroPage />,
         errorElement: <ServerErrorPage />,
     },
-    { path: "/settings", element: <SettingsPage /> },
 
     {
         element: <AppLayout />,
         errorElement: <ServerErrorPage />,
         children: [
-            { path: "/", element: <DashboardPage /> },
+            { path: "/app", element: <DashboardPage /> },
+            { path: "/dashboard", element: <DashboardPage /> },
 
             {
                 path: "/workspace/:workspaceId",
@@ -43,10 +43,8 @@ const router = createBrowserRouter([
 
             { path: "/settings", element: <SettingsPage /> },
             { path: "/login", element: <LoginPage /> },
-
             { path: "/403", element: <ForbiddenPage /> },
             { path: "/500", element: <ServerErrorPage /> },
-
             { path: "*", element: <NotFoundPage /> },
         ],
     },

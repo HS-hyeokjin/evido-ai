@@ -20,8 +20,8 @@ export default function IntroPage() {
                     </Link>
 
                     <Link
-                        to="/"
-                        className="inline-flex items-center gap-2 rounded-2xl bg-violet-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-violet-200 transition hover:-translate-y-0.5 hover:bg-violet-700"
+                        to="/app"
+                        className="inline-flex items-center gap-2 rounded-2xl bg-violet-600 px-7 py-4 text-sm font-black text-white shadow-xl shadow-violet-200 transition hover:-translate-y-0.5 hover:bg-violet-700"
                     >
                         시작하기
                         <ArrowRight className="h-4 w-4" />
@@ -52,10 +52,10 @@ export default function IntroPage() {
 
                         <div className="mt-8 flex flex-wrap gap-3">
                             <Link
-                                to="/"
+                                to="/app"
                                 className="inline-flex items-center gap-2 rounded-2xl bg-violet-600 px-7 py-4 text-sm font-black text-white shadow-xl shadow-violet-200 transition hover:-translate-y-0.5 hover:bg-violet-700"
                             >
-                                무료로 시작하기
+                                시작하기
                                 <ArrowRight className="h-4 w-4" />
                             </Link>
                         </div>

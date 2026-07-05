@@ -20,7 +20,7 @@ export default function ForbiddenPage() {
                 </p>
 
                 <button
-                    onClick={() => navigate("/")}
+                    onClick={() => navigate("/dashboard")}
                     className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#BFA8F8] px-4 py-3 text-sm font-bold text-white hover:bg-[#B397F4]"
                 >
                     <Home size={16} />

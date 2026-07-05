@@ -454,7 +454,7 @@ export default function Sidebar() {
         <>
             <aside className="flex h-screen w-72 flex-col border-r border-slate-200 bg-gradient-to-b from-white to-slate-50 px-4 py-5">
                 <div
-                    onClick={() => navigate("/")}
+                    onClick={() => navigate("/dashboard")}
                     className="group mb-4 flex cursor-pointer items-center gap-3"
                 >
                     <img
@@ -483,7 +483,7 @@ export default function Sidebar() {
                 </p>
 
                 <NavLink
-                    to="/"
+                    to="/dashboard"
                     className={({ isActive }) =>
                         `flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition ${
                             isActive
