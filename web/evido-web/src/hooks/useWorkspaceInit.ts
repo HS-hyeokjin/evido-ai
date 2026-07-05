@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { initWorkspace } from "../api/workspaces";
 
 interface UseWorkspaceInitOptions {
@@ -12,15 +12,13 @@ export default function useWorkspaceInit({
                                              user,
                                          }: UseWorkspaceInitOptions) {
     const navigate = useNavigate();
+    const location = useLocation();
     const { workspaceId } = useParams();
 
-    const [loading, setLoading] = useState(true);
-    const requestedRef = useRef(false);
+    const [loading, setLoading] = useState(false);
 
     useEffect(() => {
-        if (!enabled) {
-            return;
-        }
+        if (!enabled) return;
 
         if (!user) {
             setLoading(false);
@@ -32,11 +30,10 @@ export default function useWorkspaceInit({
             return;
         }
 
-        if (requestedRef.current) {
+        if (location.pathname !== "/app") {
+            setLoading(false);
             return;
         }
-
-        requestedRef.current = true;
 
         let cancelled = false;
 
@@ -50,10 +47,14 @@ export default function useWorkspaceInit({
                 if (cancelled) return;
 
                 if (nextWorkspaceId) {
-                    navigate(`/workspace/${nextWorkspaceId}`, { replace: true });
+                    navigate(`/workspace/${nextWorkspaceId}`, {
+                        replace: true,
+                    });
                 }
             } catch (error) {
-                console.error("워크스페이스 초기화 실패:", error);
+                if (!cancelled) {
+                    console.error("워크스페이스 초기화 실패:", error);
+                }
             } finally {
                 if (!cancelled) {
                     setLoading(false);
@@ -66,7 +67,7 @@ export default function useWorkspaceInit({
         return () => {
             cancelled = true;
         };
-    }, [enabled, user, workspaceId, navigate]);
+    }, [enabled, user, workspaceId, location.pathname, navigate]);
 
     return { loading };
 }
