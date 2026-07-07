@@ -44,40 +44,55 @@ EVIDO AI의 목표는 긴 문서를 직접 읽지 않아도 필요한 정보를 
 <table>
   <tr>
     <td width="33%" valign="top">
-      <b>1. 사용자 인증</b><br/><br/>
+      <a href="./docs/01-auth.md"><b>1. 사용자 인증</b></a><br/><br/>
       Google OAuth2 로그인과 JWT 기반 인증을 제공합니다.<br/>
       Access Token과 Refresh Token을 활용하고, HttpOnly Cookie로 토큰을 안전하게 관리합니다.
     </td>
     <td width="33%" valign="top">
-      <b>2. 워크스페이스</b><br/><br/>
+      <a href="./docs/02-workspace.md"><b>2. 워크스페이스</b></a><br/><br/>
       사용자별 워크스페이스를 생성하고 관리할 수 있습니다.<br/>
       문서, 대화, 권한을 워크스페이스 단위로 분리하여 관리합니다.
     </td>
     <td width="33%" valign="top">
-      <b>3. 문서 관리</b><br/><br/>
+      <a href="./docs/03-document-management.md"><b>3. 문서 관리</b></a><br/><br/>
       PDF, TXT 문서를 업로드하고 상태를 관리할 수 있습니다.<br/>
       문서 상세 조회와 문서 뷰어를 통해 원본 내용을 확인할 수 있습니다.
     </td>
   </tr>
   <tr>
     <td width="33%" valign="top">
-      <b>4. AI 질의응답</b><br/><br/>
+      <a href="./docs/05-rag-answer.md"><b>4. AI 질의응답</b></a><br/><br/>
       업로드된 문서를 기반으로 질문에 답변합니다.<br/>
       Qdrant Vector DB에서 관련 문서 청크를 검색하고, LLM을 통해 답변을 생성합니다.
     </td>
     <td width="33%" valign="top">
-      <b>5. 대화 관리</b><br/><br/>
+      <a href="./docs/06-conversation.md"><b>5. 대화 관리</b></a><br/><br/>
       워크스페이스별 대화 목록을 관리합니다.<br/>
       첫 메시지 전송 시 새 대화가 자동 생성되고, 이후 메시지를 이어서 저장할 수 있습니다.
     </td>
     <td width="33%" valign="top">
-      <b>6. 근거 표시</b><br/><br/>
-      AI 답변 아래에 근거 문서 조각을 함께 제공합니다.<br/>
-      문서명, 점수, 청크 내용을 확인하여 답변의 신뢰성을 높일 수 있습니다.
+      <a href="./docs/04-document-processing.md"><b>6. 문서 처리 / 근거 검색</b></a><br/><br/>
+      문서를 청크 단위로 분할하고 임베딩을 생성합니다.<br/>
+      AI 답변 아래에 근거 문서 조각을 함께 제공하여 신뢰성을 높입니다.
     </td>
   </tr>
 </table>
+---
 
+## 상세 문서
+
+EVIDO AI의 기능별 구현 내용은 아래 문서에서 확인할 수 있습니다.
+
+| 문서 | 설명 |
+| --- | --- |
+| [사용자 인증](./docs/01-auth.md) | Google OAuth2 로그인, JWT 발급, Refresh Token 저장, Access Token 자동 재발급 흐름 |
+| [워크스페이스](./docs/02-workspace.md) | 사용자별 워크스페이스 생성, 기본 워크스페이스 초기화, 권한 분리 구조 |
+| [문서 관리](./docs/03-document-management.md) | PDF/TXT 업로드, 문서 목록 조회, 문서 상세 조회, 버전 관리, 삭제 처리 |
+| [문서 처리](./docs/04-document-processing.md) | 텍스트 추출, 정규화, 청킹, 임베딩 생성, Qdrant Vector DB 저장 구조 |
+| [RAG 답변 생성](./docs/05-rag-answer.md) | 질문 분류, 후속 질문 감지, 질의 재작성, 문서 검색, LLM 답변 생성, 근거 검증 |
+| [대화 관리](./docs/06-conversation.md) | 대화 생성, 메시지 저장, SSE 스트리밍 응답, 근거 이벤트 처리 |
+| [사용자 설정](./docs/07-user-settings.md) | 표시 이름, 답변 스타일, 근거 표시 방식, 테마 설정 관리 |
+| [공통 API / 예외 처리](./docs/08-common-api.md) | CommonResponse, ErrorCode, BusinessException, Axios Interceptor, 공통 에러 처리 |
 
 ---
 
@@ -122,22 +137,3 @@ User / Browser → React Frontend → Nginx Reverse Proxy → Spring Boot API Se
 | 5차 스프린트 | 2026.06 이후              | 서비스 안정화 및 확장          | OCR, 답변 캐싱 고도화, S3 저장소 고도화, 스트리밍 답변, MSA 전환 검토               |
 
 ---
-
-## 향후 개발 계획
-
-EVIDO AI는 현재 문서 업로드, RAG 기반 질의응답, 근거 제공 기능을 중심으로 개발되어 있습니다.
-향후에는 문서 처리 안정성, 검색 품질, 배포 자동화, 조직 단위 확장성을 중심으로 개선할 계획입니다.
-
-| 구분     | 주요 내용                                                       |
-| --------- | ----------------------------------------------------------- |
-| 서비스 안정화   | 문서 업로드 안정화, PDF/TXT 뷰어 개선, 예외 처리 통일, 공통 응답 구조 정리            |
-| 사용자 경험 개선 | 채팅 UI 개선, 답변 생성 로딩 처리, 근거 표시 UI 개선, 문서 검색 결과 가독성 개선         |
-| RAG 품질 개선 | 질문 분류 고도화, 질의 재작성 개선, 답변 캐싱 적용, 문서 청크 검색 품질 개선              |
-| 문서 처리 확장  | OCR 기반 이미지 PDF 처리, 문서 요약 기능 추가, S3 기반 파일 저장소 전환             |
-| 배포 환경 개선  | GitHub Actions 기반 CI/CD 전환, Docker 배포 자동화, Blue-Green 배포 적용 |
-| 서비스 확장    | 실시간 스트리밍 답변, 문서 변경 이력 관리, 조직 단위 협업 기능 추가                    |
-| 아키텍처 확장   | MSA 전환 검토, Kafka 기반 이벤트 처리, 내부 LLM 전환 구조 설계                 |
-| 기업용 서비스화  | 관리자 대시보드, 사용량 관리, 감사 로그, 기업용 SaaS 형태로 확장                    |
-
-
-
